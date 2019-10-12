@@ -2,22 +2,47 @@
 
 #define BUFF_SIZE 1024
 
-char * build_request(char *request_path){
+//request endpoint
+//response generator
+//zwrotka plików JSON
+
+void get_method(char *request_URL){
+
+    char endpoints[100];
+
+    FILE* file = fopen("endpoints_url.txt", "r");
+    while(1){
+        char url[30];
+        fscanf(file, "%s\n", url);
+        if(strcmp(url,request_URL) == 0){
+            //TODO zwrotka z endpointa (JSON)
+            printf("HELLO.");
+            break;
+        }else{
+            // TODO blad 404
+            if(strcmp(url,"EOF") == 0){
+                printf("This endpoint does not exist.");
+                break;
+            }
+        }
+    }
+}
+void build_request(char *request_path){
     char request_method[10];
     char request_URL[100];
-    char http_version[20];
+    char http_version[400];
 
-    printf(&request_path);
-    // sscanf(request_path,"%s %s %s\n", request_method, request_URL, http_version);
-    // printf(request_method);
-    // if(request_method[0] == 'G'){
-    //     printf("GET.");
-    // }
-    return request_method;
-
+    sscanf(request_path,"%s %s %s\n", request_method, request_URL, http_version);
+    if(strcmp("GET", request_method) == 0){
+        get_method(request_URL);
+        printf(request_URL);
+    }
 }
 
 int main(){
+
+    //-----------------------------
+    //server configuration
     struct sockaddr_in server_addr, cli_addr;
     socklen_t clilen;
     char buffer[BUFF_SIZE];
@@ -43,14 +68,23 @@ int main(){
     if(cli_sock < 0){
         error("Accept Client error.");
     }
+    //End of server configuration
+
 
     if(read(cli_sock, buffer, sizeof(buffer)) < 0){
         error("Read error.");
     }
+
+
+    
+
     build_request(buffer);
-    if(write(cli_sock, buffer, BUFF_SIZE)  < 0){
+    char response[BUFF_SIZE] = "{{\"author\": \"Roberto Bolano\"}}";
+    if(write(cli_sock, response, BUFF_SIZE)  < 0){
         error("Write response error.");
     }
 
-    printf("JESTEM TU");
+    __bzero(buffer, BUFF_SIZE);
+
+    return 0;
 }

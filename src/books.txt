@@ -1,0 +1,20 @@
+{
+    {
+        "author": "Roberto Bolano",
+        "title": "2666",
+        "isbn": "0312429215",
+        "language": "english",
+        "numberOfPages": 898,
+        "onShelf": true,
+        "reader": null
+    },
+    {
+        "author": "JK Rowling",
+        "title": "Harry Potter and the Chamber of Secrets",
+        "isbn": "9781856136129",
+        "language": "english",
+        "numberOfPages": 368,
+        "onShelf": true,
+        "reader": null
+    },
+}
