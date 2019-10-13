@@ -26,12 +26,34 @@ void get_method(int socket,char *request_method, char *request, char *request_da
         char url[30];
         fscanf(file, "%s\n", url);
         if(strcmp(url,request) == 0){
-            write(socket, "HELLO.", 6);
+            FILE *f = fopen("books.txt", "r");
+            fseek(f, 0, SEEK_END);
+            long fsize = ftell(f);
+            fseek(f, 0, SEEK_SET);
+
+            char *string = malloc(fsize + 1);
+            fread(string, 1, fsize, f);
+            fclose(f);
+            string[fsize] = 0;
+
+            write(socket, string, fsize);
             printf("HELLO.");
             break;
         }else{
-            // TODO blad 404
+            FILE *f = fopen("eror404.html", "r");
+            fseek(f, 0, SEEK_END);
+            long fsize = ftell(f);
+            fseek(f, 0, SEEK_SET);
+
+            char *string = malloc(fsize + 1);
+            fread(string, 1, fsize, f);
+            fclose(f);
+            string[fsize] = 0;
+        
             if(strcmp(url,"EOF") == 0){
+                if(write(socket, string, fsize) < 0){
+                    error("Write error404 page.");
+                }
                 printf("This endpoint does not exist.");
                 break;
             }
@@ -44,6 +66,8 @@ void build_request(int socket,char *request_path){
     char url_data[4] = {0};
     char url[10];
     url[0] = '/';
+
+    // printf(request_path);
 
     sscanf(request_path,"%s %s\n", request_method, request_URL);
     int tmp = 0;
@@ -66,6 +90,10 @@ void build_request(int socket,char *request_path){
     if(strcmp("GET", request_method) == 0){
         get_method(socket,request_method, url, url_data);
     }
+}
+
+void build_response(){
+
 }
 
 int main(){
