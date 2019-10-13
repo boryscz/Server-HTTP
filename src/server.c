@@ -9,33 +9,35 @@
 void get_method(int socket,char *request_method, char *request, char *request_data ){
 
     FILE* file = fopen("endpoints_url.txt", "r");
+    FILE *response = fopen("response.txt", "a");
+    fseek(response,0, SEEK_END);
 
-    // printf(request_method);
-    // printf("\n");
-    // printf(request);
-    // printf("\n");
-    // printf(request_data);
-    // printf("\n");
     char *end = NULL;
     long id = strtol(request_data, &end, 10);   
 
     while(1){
         char url[30];
         fscanf(file, "%s\n", url);
-        if(strcmp(url,request) == 0){
+        if(strcmp(url,request) == 0){ // nie dziala poprawnie
+            fprintf(response, "HTTP/1.1 200 OK\n");
+            fprintf(response, "Content-type: application/json\n");
+            fprintf(response, "\n");
             if(id<=0){
-                FILE *f = fopen("books.txt", "r");
-                fseek(f, 0, SEEK_END);
-                long fsize = ftell(f);
-                fseek(f, 0, SEEK_SET);
+                FILE *f = fopen("books.json", "r");
+                char *line= NULL;
+                ssize_t read;
+                size_t len = 0;
+                
+                while((read = getline(&line, &len, f))!= -1){
+                    if(strcmp(line, "[\n") == 0){
+                        fprintf(response,"{\n"); 
+                    }else if(strcmp(line, "]\n") == 0){
+                        fprintf(response, "}\n");  
+                    }else{
+                        fprintf(response, line);
+                    }
+                }
 
-                char *string = malloc(fsize + 1);
-                fread(string, 1, fsize, f);
-                fclose(f);
-                string[fsize] = 0;
-
-                write(socket, string, fsize);
-                printf("HELLO.");
                 break;
             }else{
                 FILE *f = fopen("books.json", "r");
@@ -46,61 +48,62 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                 while((read = getline(&line, &len, f))!= -1){
                     sscanf( line, "\t\t\"id\": %d,\n", &number);
                     if(number == id){
-                        printf("ISTNIEJE TAKI ID w bazie: %d\n", number);
-                        FILE *response = fopen("response-element.txt", "a");
+                        
                         fprintf(response,"{\n");
-                        fseek(response,0, SEEK_END);
                         fprintf(response, line);
                         if(response == NULL){
-                            printf("Opening response-element.txt file error.");
+                            printf("Opening response.txt file error.");
                             exit(1);
                         }
                         
                         while((read = getline(&line, &len, f))!= -1){
-                            printf(line);          
-                            if(strcmp(line, "    },\n") == 0){
+
+                            if(strcmp(line, "    },\n") == 0 || strcmp(line, "    }\n") == 0){
                                 fprintf(response, "}");
                                 break;
                                 
                             }           
                             fprintf(response, line);
                         }
-                        fseek(response, 0, SEEK_END);
-                        long response_size = ftell(response);
-                        fseek(response, 0, SEEK_SET);
-
-                        char *response_string = malloc(response_size + 1);
-                        fread(response_string, 1, response_size, response);
+                        
                         fclose(response);
-                        response_string[response_size] = 0;
-
-                        write(socket, response_string, response_size);
-
                         break;
-                        //ogarnac error this endpoint does not exist.!!!
+
                     }
                 }
+                if(read == -1){ //nie dziala poprawnie
+                    fseek(response, 0,SEEK_SET);
+                    fprintf(response, "HTTP/1.1 204 No Content\nContent-type: text/html\n\n");
+                    fprintf(response, "<!DOCTYPE html><html><head><title>OK 204</title></head><div id=\"main\"><div class=\"fof\"><h1>Record does not exist.</h1></div></div></html>");
+                    fclose(response);     
+                }
+                break;
             }
         }else{
-            FILE *f = fopen("eror404.html", "r");
-            fseek(f, 0, SEEK_END);
-            long fsize = ftell(f);
-            fseek(f, 0, SEEK_SET);
-
-            char *string = malloc(fsize + 1);
-            fread(string, 1, fsize, f);
-            fclose(f);
-            string[fsize] = 0;
-        
             if(strcmp(url,"EOF") == 0){
-                if(write(socket, string, fsize) < 0){
-                    printf("Write error404 page.");
-                }
-                printf("This endpoint does not exist.");
+                
+                fprintf(response, "HTTP/1.1 404 ERROR\nContent-type: text/html\n\n");
+                fprintf(response, "<!DOCTYPE html><html><head><title>ERROR 404</title></head><div id=\"main\"><div class=\"fof\"><h1>Page does not exist.</h1></div></div></html>");
+                fclose(response);
+                
                 break;
             }
         }
     }
+    FILE *f = fopen("response.txt", "r");
+    fseek(f, 0, SEEK_END);
+    long fsize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    char *string = malloc(fsize + 1);
+    fread(string, 1, fsize, f);
+    fclose(f);
+    string[fsize] = 0;
+
+    if(write(socket, string, fsize) < 0){
+        printf("Write content error.");
+    }
+    // remove("response.txt");
 }
 
 void build_request(int socket,char *request_path){
@@ -109,9 +112,7 @@ void build_request(int socket,char *request_path){
     char url_data[4] = {0};
     char url[10];
     url[0] = '/';
-
-    // printf(request_path);
-
+    
     sscanf(request_path,"%s %s\n", request_method, request_URL);
     int tmp = 0;
     int iterator = 0;
@@ -129,6 +130,7 @@ void build_request(int socket,char *request_path){
 
         url[i] = request_URL[i];
     }
+
     if(strcmp("GET", request_method) == 0){
         get_method(socket,request_method, url, url_data);
     }
@@ -170,12 +172,7 @@ int main(){
         printf("Read error.");
     }
     build_request(cli_sock,buffer);
-    // char response[BUFF_SIZE] = "{{\"author\": \"Roberto Bolano\"}}";
-    // if(write(cli_sock, response, BUFF_SIZE)  < 0){
-    //     error("Write response error.");
-    // }
 
-    // __bzero(buffer, BUFF_SIZE);
     malloc(sizeof(buffer) * 64);
 
     return 0;
