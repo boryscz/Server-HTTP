@@ -6,16 +6,27 @@
 //response generator
 //zwrotka plików JSON
 
-void get_method(char *request_URL){
+void get_method(int socket,char *request_method, char *request, char *request_data ){
 
     char endpoints[100];
 
     FILE* file = fopen("endpoints_url.txt", "r");
+    // char data[10];
+    // data[0]='/';
+    // char *ptr_data = data[1];
+    // char number[10];
+    // sscanf(request_URL, "/%s/%s", ptr_data,number);
+    // printf(ptr_data);
+    // printf(number);
+    printf(request);
+    printf("\n");
+    printf(request_data);
+    printf("\n");
     while(1){
         char url[30];
         fscanf(file, "%s\n", url);
-        if(strcmp(url,request_URL) == 0){
-            //TODO zwrotka z endpointa (JSON)
+        if(strcmp(url,request) == 0){
+            write(socket, "HELLO.", 6);
             printf("HELLO.");
             break;
         }else{
@@ -27,15 +38,33 @@ void get_method(char *request_URL){
         }
     }
 }
-void build_request(char *request_path){
+void build_request(int socket,char *request_path){
     char request_method[10];
-    char request_URL[100];
-    char http_version[400];
+    char request_URL[11];
+    char url_data[4] = {0};
+    char url[10];
+    url[0] = '/';
 
-    sscanf(request_path,"%s %s %s\n", request_method, request_URL, http_version);
+    sscanf(request_path,"%s %s\n", request_method, request_URL);
+    int tmp = 0;
+    int iterator = 0;
+    for(int i = 1; i < 11 ; i++){
+        if(request_URL[i] == '/'){
+            tmp = i;
+            i++;
+        }
+        if(tmp > 0){
+            url_data[iterator] = request_URL[i];
+            request_URL[i] = '\0';
+            iterator++;
+            continue;
+        }
+
+        url[i] = request_URL[i];
+
+    }
     if(strcmp("GET", request_method) == 0){
-        get_method(request_URL);
-        printf(request_URL);
+        get_method(socket,request_method, url, url_data);
     }
 }
 
@@ -74,17 +103,14 @@ int main(){
     if(read(cli_sock, buffer, sizeof(buffer)) < 0){
         error("Read error.");
     }
+    build_request(cli_sock,buffer);
+    // char response[BUFF_SIZE] = "{{\"author\": \"Roberto Bolano\"}}";
+    // if(write(cli_sock, response, BUFF_SIZE)  < 0){
+    //     error("Write response error.");
+    // }
 
-
-    
-
-    build_request(buffer);
-    char response[BUFF_SIZE] = "{{\"author\": \"Roberto Bolano\"}}";
-    if(write(cli_sock, response, BUFF_SIZE)  < 0){
-        error("Write response error.");
-    }
-
-    __bzero(buffer, BUFF_SIZE);
+    // __bzero(buffer, BUFF_SIZE);
+    malloc(sizeof(buffer) * 64);
 
     return 0;
 }
