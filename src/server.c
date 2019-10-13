@@ -8,37 +8,79 @@
 
 void get_method(int socket,char *request_method, char *request, char *request_data ){
 
-    char endpoints[100];
-
     FILE* file = fopen("endpoints_url.txt", "r");
-    // char data[10];
-    // data[0]='/';
-    // char *ptr_data = data[1];
-    // char number[10];
-    // sscanf(request_URL, "/%s/%s", ptr_data,number);
-    // printf(ptr_data);
-    // printf(number);
-    printf(request);
-    printf("\n");
-    printf(request_data);
-    printf("\n");
+
+    // printf(request_method);
+    // printf("\n");
+    // printf(request);
+    // printf("\n");
+    // printf(request_data);
+    // printf("\n");
+    char *end = NULL;
+    long id = strtol(request_data, &end, 10);   
+
     while(1){
         char url[30];
         fscanf(file, "%s\n", url);
         if(strcmp(url,request) == 0){
-            FILE *f = fopen("books.txt", "r");
-            fseek(f, 0, SEEK_END);
-            long fsize = ftell(f);
-            fseek(f, 0, SEEK_SET);
+            if(id<=0){
+                FILE *f = fopen("books.txt", "r");
+                fseek(f, 0, SEEK_END);
+                long fsize = ftell(f);
+                fseek(f, 0, SEEK_SET);
 
-            char *string = malloc(fsize + 1);
-            fread(string, 1, fsize, f);
-            fclose(f);
-            string[fsize] = 0;
+                char *string = malloc(fsize + 1);
+                fread(string, 1, fsize, f);
+                fclose(f);
+                string[fsize] = 0;
 
-            write(socket, string, fsize);
-            printf("HELLO.");
-            break;
+                write(socket, string, fsize);
+                printf("HELLO.");
+                break;
+            }else{
+                FILE *f = fopen("books.json", "r");
+                char *line= NULL;
+                ssize_t read;
+                size_t len = 0;
+                int number;
+                while((read = getline(&line, &len, f))!= -1){
+                    sscanf( line, "\t\t\"id\": %d,\n", &number);
+                    if(number == id){
+                        printf("ISTNIEJE TAKI ID w bazie: %d\n", number);
+                        FILE *response = fopen("response-element.txt", "a");
+                        fprintf(response,"{\n");
+                        fseek(response,0, SEEK_END);
+                        fprintf(response, line);
+                        if(response == NULL){
+                            printf("Opening response-element.txt file error.");
+                            exit(1);
+                        }
+                        
+                        while((read = getline(&line, &len, f))!= -1){
+                            printf(line);          
+                            if(strcmp(line, "    },\n") == 0){
+                                fprintf(response, "}");
+                                break;
+                                
+                            }           
+                            fprintf(response, line);
+                        }
+                        fseek(response, 0, SEEK_END);
+                        long response_size = ftell(response);
+                        fseek(response, 0, SEEK_SET);
+
+                        char *response_string = malloc(response_size + 1);
+                        fread(response_string, 1, response_size, response);
+                        fclose(response);
+                        response_string[response_size] = 0;
+
+                        write(socket, response_string, response_size);
+
+                        break;
+                        //ogarnac error this endpoint does not exist.!!!
+                    }
+                }
+            }
         }else{
             FILE *f = fopen("eror404.html", "r");
             fseek(f, 0, SEEK_END);
@@ -52,7 +94,7 @@ void get_method(int socket,char *request_method, char *request, char *request_da
         
             if(strcmp(url,"EOF") == 0){
                 if(write(socket, string, fsize) < 0){
-                    error("Write error404 page.");
+                    printf("Write error404 page.");
                 }
                 printf("This endpoint does not exist.");
                 break;
@@ -60,6 +102,7 @@ void get_method(int socket,char *request_method, char *request, char *request_da
         }
     }
 }
+
 void build_request(int socket,char *request_path){
     char request_method[10];
     char request_URL[11];
@@ -85,15 +128,10 @@ void build_request(int socket,char *request_path){
         }
 
         url[i] = request_URL[i];
-
     }
     if(strcmp("GET", request_method) == 0){
         get_method(socket,request_method, url, url_data);
     }
-}
-
-void build_response(){
-
 }
 
 int main(){
@@ -107,7 +145,7 @@ int main(){
 
     serv_sock = socket(AF_INET, SOCK_STREAM, 0);
     if(serv_sock < 0){
-        error("Opening socket error.");
+        printf("Opening socket error.");
     }
 
     server_addr.sin_family = AF_INET;
@@ -115,7 +153,7 @@ int main(){
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     
     if(bind(serv_sock, (struct sockaddr *) &server_addr, sizeof(server_addr))){
-        error("Binding socket error.");
+        printf("Binding socket error.");
     }
 
     listen(serv_sock, 5);
@@ -123,13 +161,13 @@ int main(){
 
     cli_sock = accept(serv_sock, (struct sockaddr *) &cli_addr, &clilen);
     if(cli_sock < 0){
-        error("Accept Client error.");
+        printf("Accept Client error.");
     }
     //End of server configuration
 
 
     if(read(cli_sock, buffer, sizeof(buffer)) < 0){
-        error("Read error.");
+        printf("Read error.");
     }
     build_request(cli_sock,buffer);
     // char response[BUFF_SIZE] = "{{\"author\": \"Roberto Bolano\"}}";

@@ -3,6 +3,7 @@ Content-type: application/json
 
 {
     {
+        "id": 123
         "author": "Roberto Bolano",
         "title": "2666",
         "isbn": "0312429215",
@@ -12,6 +13,7 @@ Content-type: application/json
         "reader": null
     },
     {
+        "id": 321
         "author": "JK Rowling",
         "title": "Harry Potter and the Chamber of Secrets",
         "isbn": "9781856136129",
