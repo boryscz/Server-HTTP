@@ -153,49 +153,64 @@ void put_method(int socket, char *request_method, char *request, char *request_d
     fclose(request_read_file);
     //------------------------------------- 
 
+    FILE* file = fopen("endpoints_url.txt", "r");
+
     int number;
     FILE *read_db = fopen("books.json", "a+");
     FILE *read_request = fopen("request_data.txt", "r");
     FILE *response = fopen("response.txt", "a");
-    fprintf(response, "HTTP/1.1 200 OK\n");
-    fprintf(response, "Content-type: application/json\n");
-    fprintf(response, "\n");
     while(1){
-        while((read = getline(&line, &len, read_db)) != -1){
-            sscanf( line, "\t\t\"id\": %d,\n", &number);
-            if(number == id){
-                //update ksiazki
-                printf("JESTEM TAKIM TYPEM: %d \n\n\n\n", number);
+        char url[30];
+        fscanf(file, "%s\n", url);
+        if(strcmp(url,request) == 0){
+            fprintf(response, "HTTP/1.1 200 OK\n");
+            fprintf(response, "Content-type: application/json\n");
+            fprintf(response, "\n");
+            while((read = getline(&line, &len, read_db)) != -1){
+                sscanf( line, "\t\t\"id\": %d,\n", &number);
+                if(number == id){
+                    //update ksiazki
+                    printf("JESTEM TAKIM TYPEM: %d \n\n\n\n", number);
+                    break;
+                }
+                
+            }
+            if(read == -1){// dodanie nowej ksiazki
+                FILE *read_books_db = fopen("books.json", "r+");
+                fseek(read_books_db, -3, SEEK_END);
+                // long offset = ftell(read_books_db);
+                // printf("OFFSET %ld\n", offset);
+                fprintf(read_books_db, "\n    ,");
+                
+                
+                fseek(read_request, 0, SEEK_END);
+                long fsize = ftell(read_request);
+                fseek(read_request, 0, SEEK_SET);
+
+                char *string = malloc(fsize + 1);
+                fread(string, 1, fsize, read_request);
+                fclose(read_request);
+                string[fsize] = 0;
+
+                fprintf(read_books_db, string);
+                fprintf(read_books_db, "\n]\n");
+
+                fclose(read_books_db);
+                fprintf(response, string);
+                fclose(response);
+
+            }
+            break;
+        }else{
+            if(strcmp(url,"EOF") == 0){
+                
+                fprintf(response, "HTTP/1.1 404 ERROR\nContent-type: text/html\n\n");
+                fprintf(response, "<!DOCTYPE html><html><head><title>ERROR 404</title></head><div id=\"main\"><div class=\"fof\"><h1>Page does not exist.</h1></div></div></html>");
+                fclose(response);
+                
                 break;
             }
-            
         }
-        if(read == -1){// dodanie nowej ksiazki
-            FILE *read_books_db = fopen("books.json", "r+");
-            fseek(read_books_db, -3, SEEK_END);
-            // long offset = ftell(read_books_db);
-            // printf("OFFSET %ld\n", offset);
-            fprintf(read_books_db, "\n    ,");
-            
-            
-            fseek(read_request, 0, SEEK_END);
-            long fsize = ftell(read_request);
-            fseek(read_request, 0, SEEK_SET);
-
-            char *string = malloc(fsize + 1);
-            fread(string, 1, fsize, read_request);
-            fclose(read_request);
-            string[fsize] = 0;
-
-            fprintf(read_books_db, string);
-            fprintf(read_books_db, "\n]\n");
-
-            fclose(read_books_db);
-            fprintf(response, string);
-            fclose(response);
-
-        }
-        break;
     }
     
     //zapisanie response do pliku tekstowego
@@ -214,7 +229,9 @@ void put_method(int socket, char *request_method, char *request, char *request_d
         printf("Write content error.");
     }
 
+    // remove("response.txt");
     remove("request_data.txt");
+    fclose(file);
     fclose(read_db);
 
 }
