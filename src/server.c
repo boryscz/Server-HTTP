@@ -62,7 +62,7 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                         //ten while bedzie iterowal po konkretnym elemencie json'a
                         while((read = getline(&line, &len, f))!= -1){
                             //jak wykryje koniec elementu to zapisze znako jego konca i wyjdzie z pentli
-                            if(strcmp(line, "    },\n") == 0 || strcmp(line, "    }\n") == 0){
+                            if(strcmp(line, "    }\n") == 0){
                                 fprintf(response, "}");
                                 break;
                                 
@@ -117,9 +117,110 @@ void get_method(int socket,char *request_method, char *request, char *request_da
         printf("Write content error.");
     }
     //usuniecie pliku response.txt
-    remove("response.txt");
+    // remove("response.txt");
 }
 
+void put_method(int socket, char *request_method, char *request, char *request_data){
+    //prepair request_data to write in db;
+    //---------------------------------------
+    char tmp_buffer[BUFF_SIZE];
+    strcpy(tmp_buffer, request_data);
+    FILE *request_file = fopen("request.txt", "a");
+    fprintf(request_file, tmp_buffer);
+    fclose(request_file);
+    FILE *request_read_file = fopen("request.txt", "r");
+    FILE *request_data_file = fopen("request_data.txt", "a");
+    char *line= NULL;
+    ssize_t read;
+    size_t len = 0;
+    int flag = 0;
+    int id = 0;
+    while((read = getline(&line, &len, request_read_file)) != -1){
+        sscanf( line, "\t\t\"id\": %d,\n", &id);
+        if(strcmp(line, "{\n") == 0){
+            flag = 1;
+        }
+        if(strcmp(line, "}") == 0){
+            break;
+        }
+        if(flag){
+            fprintf(request_data_file, line);
+        }
+    }
+    remove("request.txt");
+    
+    fclose(request_data_file);
+    fclose(request_read_file);
+    //------------------------------------- 
+
+    int number;
+    FILE *read_db = fopen("books.json", "a+");
+    FILE *read_request = fopen("request_data.txt", "r");
+    FILE *response = fopen("response.txt", "a");
+    fprintf(response, "HTTP/1.1 200 OK\n");
+    fprintf(response, "Content-type: application/json\n");
+    fprintf(response, "\n");
+    while(1){
+        while((read = getline(&line, &len, read_db)) != -1){
+            sscanf( line, "\t\t\"id\": %d,\n", &number);
+            if(number == id){
+                //update ksiazki
+                printf("JESTEM TAKIM TYPEM: %d \n\n\n\n", number);
+                break;
+            }
+            
+        }
+        if(read == -1){// dodanie nowej ksiazki
+            FILE *read_books_db = fopen("books.json", "r+");
+            fseek(read_books_db, -3, SEEK_END);
+            // long offset = ftell(read_books_db);
+            // printf("OFFSET %ld\n", offset);
+            fprintf(read_books_db, "\n    ,");
+            
+            
+            fseek(read_request, 0, SEEK_END);
+            long fsize = ftell(read_request);
+            fseek(read_request, 0, SEEK_SET);
+
+            char *string = malloc(fsize + 1);
+            fread(string, 1, fsize, read_request);
+            fclose(read_request);
+            string[fsize] = 0;
+
+            fprintf(read_books_db, string);
+            fprintf(read_books_db, "\n]\n");
+
+            fclose(read_books_db);
+            fprintf(response, string);
+            fclose(response);
+
+        }
+        break;
+    }
+    
+    //zapisanie response do pliku tekstowego
+    FILE *readf = fopen("response.txt", "r");
+    fseek(readf, 0, SEEK_END);
+    long fsize = ftell(readf);
+    fseek(readf, 0, SEEK_SET);
+
+    char *string = malloc(fsize + 1);
+    fread(string, 1, fsize, readf);
+    fclose(readf);
+    string[fsize] = 0;
+
+    //wyslanie odpowiedzi z serwera do klienta
+    if(write(socket, string, fsize) < 0){
+        printf("Write content error.");
+    }
+
+    remove("request_data.txt");
+    fclose(read_db);
+
+}
+
+//DELETE
+//HEAD
 void build_request(int socket,char *request_path){
     char request_method[10];
     char request_URL[11];
@@ -147,6 +248,12 @@ void build_request(int socket,char *request_path){
 
     if(strcmp("GET", request_method) == 0){
         get_method(socket,request_method, url, url_data);
+    }else if(strcmp("PUT", request_method) == 0){
+        put_method(socket, request_method, url, request_path);
+        // printf(request_path);
+        //napisać implementacje przetwarzania requesta, żeby wyciągać z niego dane potrzebne do put/post       
+        
+
     }
 }
 
