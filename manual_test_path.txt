@@ -1,0 +1,6 @@
+1. Create new book using PUT (unique id).
+2. GET new created book using /books/{id}.
+3. GET all /books.
+4. Modify one of book using PUT.
+5. DELETE modified book.
+6. ERROR PATHS.
