@@ -10,13 +10,23 @@
         "reader": null
     }
     ,{
-        "id": 321,
-        "author": "JK Rowling",
-        "title": "Harry Potter and the Chamber of Secrets",
-        "isbn": "9781856136129",
-        "language": "english",
-        "numberOfPages": 368,
+        "id": 222,
+        "author": "Tadeusz Sznuk",
+        "title": "Byc jednym z dziesieciu",
+        "isbn": "997997997",
+        "language": "polish",
+        "numberOfPages": 110,
         "onShelf": true,
+        "reader": null
+    }
+    ,{
+        "id": 321,
+        "author": "Jane Kane Krow",
+        "title": "Harry Potter Cucamber of Secrets",
+        "isbn": "978",
+        "language": "english",
+        "numberOfPages": 369,
+        "onShelf": false,
         "reader": null
     }
 ]

@@ -1,6 +1,7 @@
 #include "server.h"
 
 #define BUFF_SIZE 1024
+#define DATA_LINES 9 //linie danych od { do }
 
 //usluga GET HTTP/1.1
 void get_method(int socket,char *request_method, char *request, char *request_data ){
@@ -117,7 +118,7 @@ void get_method(int socket,char *request_method, char *request, char *request_da
         printf("Write content error.");
     }
     //usuniecie pliku response.txt
-    // remove("response.txt");
+    remove("response.txt");
 }
 
 void put_method(int socket, char *request_method, char *request, char *request_data){
@@ -153,33 +154,38 @@ void put_method(int socket, char *request_method, char *request, char *request_d
     fclose(request_read_file);
     //------------------------------------- 
 
+    //otwarcie wymaganych plikow
     FILE* file = fopen("endpoints_url.txt", "r");
-
     int number;
-    FILE *read_db = fopen("books.json", "a+");
+    FILE *read_db = fopen("books.json", "r+");
     FILE *read_request = fopen("request_data.txt", "r");
     FILE *response = fopen("response.txt", "a");
     while(1){
         char url[30];
+        //poszukiwanie url'a
         fscanf(file, "%s\n", url);
-        if(strcmp(url,request) == 0){
+        if(strcmp(url,request) == 0){ //happy-path
             fprintf(response, "HTTP/1.1 200 OK\n");
             fprintf(response, "Content-type: application/json\n");
             fprintf(response, "\n");
-            while((read = getline(&line, &len, read_db)) != -1){
+            int line_number_start = 1;
+            int line_number_end;
+            while((read = getline(&line, &len, read_db)) != -1){ 
+                //znalezienie linii ktore nalezy modyfikowac w bazie
                 sscanf( line, "\t\t\"id\": %d,\n", &number);
                 if(number == id){
-                    //update ksiazki
-                    printf("JESTEM TAKIM TYPEM: %d \n\n\n\n", number);
+                    line_number_start--;
+                    line_number_end = line_number_start + DATA_LINES;
                     break;
                 }
+                line_number_start++;
+                
                 
             }
-            if(read == -1){// dodanie nowej ksiazki
+            fclose(read_db);
+            if(read == -1){// dodanie nowej ksiazki; nie istnieje ona wczesniej w bazie
                 FILE *read_books_db = fopen("books.json", "r+");
                 fseek(read_books_db, -3, SEEK_END);
-                // long offset = ftell(read_books_db);
-                // printf("OFFSET %ld\n", offset);
                 fprintf(read_books_db, "\n    ,");
                 
                 
@@ -199,9 +205,60 @@ void put_method(int socket, char *request_method, char *request, char *request_d
                 fprintf(response, string);
                 fclose(response);
 
+            }else{//dokonanie modyfikacji obiekut ktory dostal podany w ciele zapytania PUT
+                FILE * db = fopen("books.json", "r+");
+                //plik tymczasowy posiada kopie bazy
+                FILE * tmp = fopen("temp.json", "w");
+                char buffer[BUFF_SIZE];
+                rewind(db);
+                int line_count = 1;
+                while ((fgets(buffer, BUFF_SIZE, db)) != NULL){
+                    if(line_number_start == 2){
+                        if(line_count == 2){
+                            fputs("    {\n", tmp);
+                            line_count++;
+                            continue;
+                        }
+                        if (line_count < line_number_start || line_count > line_number_end+1){
+                            fputs(buffer, tmp);
+                        }
+                    }else{
+                        if (line_count < line_number_start || line_count > line_number_end){
+                            fputs(buffer, tmp);
+                        }
+                    }
+                    line_count++;
+                }
+                fclose(tmp);
+                fclose(db);
+                remove("books.json");
+                rename("temp.json", "books.json");
+
+                //zapisanie odpowiedzi do pliku tymczasowego reponse.txt
+                FILE *read_books_db = fopen("books.json", "r+");
+                fseek(read_books_db, -3, SEEK_END);
+                fprintf(read_books_db, "\n    ,");
+                
+                
+                fseek(read_request, 0, SEEK_END);
+                long fsize = ftell(read_request);
+                fseek(read_request, 0, SEEK_SET);
+
+                char *string = malloc(fsize + 1);
+                fread(string, 1, fsize, read_request);
+                fclose(read_request);
+                string[fsize] = 0;
+
+                fprintf(read_books_db, string);
+                fprintf(read_books_db, "\n]\n");
+
+                //zamkniecie plikow
+                fclose(read_books_db);
+                fprintf(response, string);
+                fclose(response);
             }
             break;
-        }else{
+        }else{ //error-path
             if(strcmp(url,"EOF") == 0){
                 
                 fprintf(response, "HTTP/1.1 404 ERROR\nContent-type: text/html\n\n");
@@ -229,10 +286,10 @@ void put_method(int socket, char *request_method, char *request, char *request_d
         printf("Write content error.");
     }
 
-    // remove("response.txt");
+    //usuniecie i zamkniecie zbednych plikow
+    remove("response.txt");
     remove("request_data.txt");
     fclose(file);
-    fclose(read_db);
 
 }
 
@@ -280,7 +337,7 @@ int main(){
     //server configuration
     struct sockaddr_in server_addr, cli_addr;
     socklen_t clilen;
-    char buffer[BUFF_SIZE];
+    char buffer[BUFF_SIZE] ={'\0'};
     int serv_sock, cli_sock;
 
     serv_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -292,6 +349,10 @@ int main(){
     server_addr.sin_port = htons(8080);
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     
+    //niby zmniejsza czas oczekiwania na ponowne dowiazanie adresu/portu
+    // int nFoo = 1;
+    // setsockopt(cli_sock, SOL_SOCKET, SO_REUSEPORT, (char *) &nFoo, sizeof(nFoo));
+
     if(bind(serv_sock, (struct sockaddr *) &server_addr, sizeof(server_addr))){
         printf("Binding socket error.");
     }
@@ -310,6 +371,8 @@ int main(){
         printf("Read error.");
     }
     build_request(cli_sock,buffer);
+
+    
 
     malloc(sizeof(buffer) * 64);
 
