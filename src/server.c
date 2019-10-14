@@ -2,52 +2,56 @@
 
 #define BUFF_SIZE 1024
 
-//request endpoint
-//response generator
-//zwrotka plików JSON
-
+//usluga GET HTTP/1.1
 void get_method(int socket,char *request_method, char *request, char *request_data ){
 
+    //deklaracja zmiennych
+    //otwarcie plikow
     FILE* file = fopen("endpoints_url.txt", "r");
     FILE *response = fopen("response.txt", "a");
     fseek(response,0, SEEK_END);
 
+    FILE *f = fopen("books.json", "r");
+    char *line= NULL;
+    ssize_t read;
+    size_t len = 0;
+
+    //zamiana numeru identyfikacji ksiazki na long
     char *end = NULL;
     long id = strtol(request_data, &end, 10);   
 
     while(1){
         char url[30];
         fscanf(file, "%s\n", url);
-        if(strcmp(url,request) == 0){ // nie dziala poprawnie
-            fprintf(response, "HTTP/1.1 200 OK\n");
-            fprintf(response, "Content-type: application/json\n");
-            fprintf(response, "\n");
+        //sprawdzenie czy dany request url istnieje w bazie
+        if(strcmp(url,request) == 0){
+            //jesli id <= 0 to oznacza ze zwrcamy cala liste books.json
             if(id<=0){
-                FILE *f = fopen("books.json", "r");
-                char *line= NULL;
-                ssize_t read;
-                size_t len = 0;
-                
-                while((read = getline(&line, &len, f))!= -1){
-                    if(strcmp(line, "[\n") == 0){
-                        fprintf(response,"{\n"); 
-                    }else if(strcmp(line, "]\n") == 0){
-                        fprintf(response, "}\n");  
-                    }else{
-                        fprintf(response, line);
-                    }
-                }
+                //naglowek HTTP/1.1
+                fprintf(response, "HTTP/1.1 200 OK\n");
+                fprintf(response, "Content-type: application/json\n");
+                fprintf(response, "\n");    
+                fseek(f, 0, SEEK_END);
+                long fsize = ftell(f);
+                fseek(f, 0, SEEK_SET);
 
+                char *string = malloc(fsize + 1);
+                fread(string, 1, fsize, f);
+                fclose(f);
+                string[fsize] = 0;
+                fprintf(response, string);
+                //zamkniecie deskryptorow plikow - trzeba pamietac
+                fclose(response);
                 break;
             }else{
-                FILE *f = fopen("books.json", "r");
-                char *line= NULL;
-                ssize_t read;
-                size_t len = 0;
                 int number;
+                //czytanie books.json linia po lini w poszukiwaniu konkretnego "id"
                 while((read = getline(&line, &len, f))!= -1){
                     sscanf( line, "\t\t\"id\": %d,\n", &number);
-                    if(number == id){
+                    if(number == id){ //znaleziono id - tworzenie HTTP response
+                        fprintf(response, "HTTP/1.1 200 OK\n");
+                        fprintf(response, "Content-type: application/json\n");
+                        fprintf(response, "\n");
                         
                         fprintf(response,"{\n");
                         fprintf(response, line);
@@ -55,9 +59,9 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                             printf("Opening response.txt file error.");
                             exit(1);
                         }
-                        
+                        //ten while bedzie iterowal po konkretnym elemencie json'a
                         while((read = getline(&line, &len, f))!= -1){
-
+                            //jak wykryje koniec elementu to zapisze znako jego konca i wyjdzie z pentli
                             if(strcmp(line, "    },\n") == 0 || strcmp(line, "    }\n") == 0){
                                 fprintf(response, "}");
                                 break;
@@ -65,45 +69,55 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                             }           
                             fprintf(response, line);
                         }
-                        
+                        //zamknie deskryptory plikow
+                        fclose(f);
                         fclose(response);
                         break;
 
                     }
                 }
-                if(read == -1){ //nie dziala poprawnie
-                    fseek(response, 0,SEEK_SET);
-                    fprintf(response, "HTTP/1.1 204 No Content\nContent-type: text/html\n\n");
-                    fprintf(response, "<!DOCTYPE html><html><head><title>OK 204</title></head><div id=\"main\"><div class=\"fof\"><h1>Record does not exist.</h1></div></div></html>");
+                //przypadek gdy nie zostanie znaleziony identyfikator ksiazki
+                if(read == -1){ 
+                    
+                    fprintf(response, "HTTP/1.1 200 OK\n");
+                    fprintf(response, "Content-type: text/html\n\n");
+                    fprintf(response, "<!DOCTYPE html><html><head><title>No Content 204</title></head><div id=\"main\"><div class=\"fof\"><h1>Record does not exist.</h1></div></div></html>");
                     fclose(response);     
+                    fclose(f);
                 }
                 break;
             }
         }else{
+            //przypadek gdy nie znajdzie takiego url na serwerze
             if(strcmp(url,"EOF") == 0){
                 
                 fprintf(response, "HTTP/1.1 404 ERROR\nContent-type: text/html\n\n");
                 fprintf(response, "<!DOCTYPE html><html><head><title>ERROR 404</title></head><div id=\"main\"><div class=\"fof\"><h1>Page does not exist.</h1></div></div></html>");
                 fclose(response);
+                fclose(f);
                 
                 break;
             }
         }
     }
-    FILE *f = fopen("response.txt", "r");
-    fseek(f, 0, SEEK_END);
-    long fsize = ftell(f);
-    fseek(f, 0, SEEK_SET);
+    fclose(file);
+    //zapisanie response do pliku tekstowego
+    FILE *readf = fopen("response.txt", "r");
+    fseek(readf, 0, SEEK_END);
+    long fsize = ftell(readf);
+    fseek(readf, 0, SEEK_SET);
 
     char *string = malloc(fsize + 1);
-    fread(string, 1, fsize, f);
-    fclose(f);
+    fread(string, 1, fsize, readf);
+    fclose(readf);
     string[fsize] = 0;
 
+    //wyslanie odpowiedzi z serwera do klienta
     if(write(socket, string, fsize) < 0){
         printf("Write content error.");
     }
-    // remove("response.txt");
+    //usuniecie pliku response.txt
+    remove("response.txt");
 }
 
 void build_request(int socket,char *request_path){
