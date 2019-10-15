@@ -79,8 +79,7 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                 }
                 //przypadek gdy nie zostanie znaleziony identyfikator ksiazki
                 if(read == -1){ 
-                    
-                    fprintf(response, "HTTP/1.1 200 OK\n");
+                    fprintf(response, "HTTP/1.1 201 No Content\n"); //powinno byc 204 No Content ale Postman tego nie obsługuje
                     fprintf(response, "Content-type: text/html\n\n");
                     fprintf(response, "<!DOCTYPE html><html><head><title>No Content 204</title></head><div id=\"main\"><div class=\"fof\"><h1>Record does not exist.</h1></div></div></html>");
                     fclose(response);     
@@ -92,8 +91,8 @@ void get_method(int socket,char *request_method, char *request, char *request_da
             //przypadek gdy nie znajdzie takiego url na serwerze
             if(strcmp(url,"EOF") == 0){
                 
-                fprintf(response, "HTTP/1.1 404 ERROR\nContent-type: text/html\n\n");
-                fprintf(response, "<!DOCTYPE html><html><head><title>ERROR 404</title></head><div id=\"main\"><div class=\"fof\"><h1>Page does not exist.</h1></div></div></html>");
+                fprintf(response, "HTTP/1.1 501 Not Implemented\nContent-type: text/html\n\n");
+                fprintf(response, "<!DOCTYPE html><html><head><title>Not Implemented 501</title></head><div id=\"main\"><div class=\"fof\"><h1>URL is Not implemented.</h1></div></div></html>");
                 fclose(response);
                 fclose(f);
                 
@@ -121,6 +120,7 @@ void get_method(int socket,char *request_method, char *request, char *request_da
     remove("response.txt");
 }
 
+//usługa PUT HTTP/1.1
 void put_method(int socket, char *request_method, char *request, char *request_data){
     //prepair request_data to write in db;
     //---------------------------------------
@@ -165,9 +165,7 @@ void put_method(int socket, char *request_method, char *request, char *request_d
         //poszukiwanie url'a
         fscanf(file, "%s\n", url);
         if(strcmp(url,request) == 0){ //happy-path
-            fprintf(response, "HTTP/1.1 200 OK\n");
-            fprintf(response, "Content-type: application/json\n");
-            fprintf(response, "\n");
+            
             int line_number_start = 1;
             int line_number_end;
             while((read = getline(&line, &len, read_db)) != -1){ 
@@ -184,6 +182,9 @@ void put_method(int socket, char *request_method, char *request, char *request_d
             }
             fclose(read_db);
             if(read == -1){// dodanie nowej ksiazki; nie istnieje ona wczesniej w bazie
+                fprintf(response, "HTTP/1.1 201 Created\n");
+                fprintf(response, "Content-type: application/json\n");
+                fprintf(response, "\n");
                 FILE *read_books_db = fopen("books.json", "r+");
                 fseek(read_books_db, -3, SEEK_END);
                 fprintf(read_books_db, "\n    ,");
@@ -206,6 +207,9 @@ void put_method(int socket, char *request_method, char *request, char *request_d
                 fclose(response);
 
             }else{//dokonanie modyfikacji obiekut ktory dostal podany w ciele zapytania PUT
+                fprintf(response, "HTTP/1.1 200 OK\n");
+                fprintf(response, "Content-type: application/json\n");
+                fprintf(response, "\n");
                 FILE * db = fopen("books.json", "r+");
                 //plik tymczasowy posiada kopie bazy
                 FILE * tmp = fopen("temp.json", "w");
@@ -261,8 +265,8 @@ void put_method(int socket, char *request_method, char *request, char *request_d
         }else{ //error-path
             if(strcmp(url,"EOF") == 0){
                 
-                fprintf(response, "HTTP/1.1 404 ERROR\nContent-type: text/html\n\n");
-                fprintf(response, "<!DOCTYPE html><html><head><title>ERROR 404</title></head><div id=\"main\"><div class=\"fof\"><h1>Page does not exist.</h1></div></div></html>");
+                fprintf(response, "HTTP/1.1 501 Not Implemented\nContent-type: text/html\n\n");
+                fprintf(response, "<!DOCTYPE html><html><head><title>ERROR 501</title></head><div id=\"main\"><div class=\"fof\"><h1>URL is not implemented.</h1></div></div></html>");
                 fclose(response);
                 
                 break;
@@ -291,6 +295,122 @@ void put_method(int socket, char *request_method, char *request, char *request_d
     remove("request_data.txt");
     fclose(file);
 
+}
+
+//usługa POST HTTP/1.1
+void post_method(int socket, char *request_method, char *request, char *request_data){
+    //prepair request_data to write in db;
+    //---------------------------------------
+    char tmp_buffer[BUFF_SIZE];
+    strcpy(tmp_buffer, request_data);
+    FILE *request_file = fopen("request.txt", "a");
+    fprintf(request_file, tmp_buffer);
+    fclose(request_file);
+    FILE *request_read_file = fopen("request.txt", "r");
+    FILE *request_data_file = fopen("request_data.txt", "a");
+    char *line= NULL;
+    ssize_t read;
+    size_t len = 0;
+    int flag = 0;
+    int id = 0;
+    while((read = getline(&line, &len, request_read_file)) != -1){
+        sscanf( line, "\t\t\"id\": %d,\n", &id);
+        if(strcmp(line, "{\n") == 0){
+            flag = 1;
+        }
+        if(strcmp(line, "}") == 0){
+            break;
+        }
+        if(flag){
+            fprintf(request_data_file, line);
+        }
+    }
+    remove("request.txt");
+    
+    fclose(request_data_file);
+    fclose(request_read_file);
+    //-------------------------------------
+
+    //otwarcie wymaganych plikow
+    FILE* file = fopen("endpoints_url.txt", "r");
+    int number;
+    FILE *read_db = fopen("books.json", "r+");
+    FILE *read_request = fopen("request_data.txt", "r");
+    FILE *response = fopen("response.txt", "a");
+    while(1){
+        char url[30];
+        //poszukiwanie url'a
+        fscanf(file, "%s\n", url);
+        if(strcmp(url,request) == 0){ //happy-path
+            while((read = getline(&line, &len, read_db)) != -1){ 
+                sscanf( line, "\t\t\"id\": %d,\n", &number);
+                if(number == id){
+                    //dopisać error patha że taki rekord istnieje i nie można go dodać :)
+                    fprintf(response, "HTTP/1.1 201 No Content\n");
+                    fprintf(response, "Content-type: text/html\n\n");
+                    fprintf(response, "<!DOCTYPE html><html><head><title>No Content 201</title></head><div id=\"main\"><div class=\"fof\"><h1>This record exists in data base.</h1></div></div></html>");
+                    fclose(response);     
+                    break;
+                }
+            }
+            fclose(read_db);
+            if(read == -1){// dodanie nowej ksiazki; nie istnieje ona wczesniej w bazie
+                fprintf(response, "HTTP/1.1 201 Created\n");
+                fprintf(response, "Content-type: application/json\n");
+                fprintf(response, "\n");
+                FILE *read_books_db = fopen("books.json", "r+");
+                fseek(read_books_db, -3, SEEK_END);
+                fprintf(read_books_db, "\n    ,");
+                
+                
+                fseek(read_request, 0, SEEK_END);
+                long fsize = ftell(read_request);
+                fseek(read_request, 0, SEEK_SET);
+
+                char *string = malloc(fsize + 1);
+                fread(string, 1, fsize, read_request);
+                fclose(read_request);
+                string[fsize] = 0;
+
+                fprintf(read_books_db, string);
+                fprintf(read_books_db, "\n]\n");
+
+                fclose(read_books_db);
+                // fprintf(response, string); //dodanie utworzonego pola do odpowiedzi
+                fclose(response);
+            }
+            break;
+        }else{ //error-path
+            if(strcmp(url,"EOF") == 0){
+                
+                fprintf(response, "HTTP/1.1 501 Not Implemented\nContent-type: text/html\n\n");
+                fprintf(response, "<!DOCTYPE html><html><head><title>501 Not Implemented</title></head><div id=\"main\"><div class=\"fof\"><h1>URL is not implemented.</h1></div></div></html>");
+                fclose(response);
+                
+                break;
+            }
+        }
+    }
+    //zapisanie response do pliku tekstowego
+    FILE *readf = fopen("response.txt", "r");
+    fseek(readf, 0, SEEK_END);
+    long fsize = ftell(readf);
+    fseek(readf, 0, SEEK_SET);
+
+    char *string = malloc(fsize + 1);
+    fread(string, 1, fsize, readf);
+    fclose(readf);
+    string[fsize] = 0;
+
+    //wyslanie odpowiedzi z serwera do klienta
+    if(write(socket, string, fsize) < 0){
+        printf("Write content error.");
+    }
+
+    //usuniecie i zamkniecie zbednych plikow
+    remove("response.txt");
+    remove("request_data.txt");
+    fclose(file);
 }
 
 //DELETE
@@ -323,11 +443,9 @@ void build_request(int socket,char *request_path){
     if(strcmp("GET", request_method) == 0){
         get_method(socket,request_method, url, url_data);
     }else if(strcmp("PUT", request_method) == 0){
-        put_method(socket, request_method, url, request_path);
-        // printf(request_path);
-        //napisać implementacje przetwarzania requesta, żeby wyciągać z niego dane potrzebne do put/post       
-        
-
+        put_method(socket, request_method, url, request_path);       
+    }else if(strcmp("POST", request_method) == 0){
+        post_method(socket, request_method, url, request_path);
     }
 }
 

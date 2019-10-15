@@ -29,4 +29,14 @@
         "onShelf": false,
         "reader": null
     }
+    ,{
+        "id": 111,
+        "author": "Edited Author",
+        "title": "Edited Book",
+        "isbn": "111",
+        "language": "english",
+        "numberOfPages": 111,
+        "onShelf": false,
+        "reader": null
+    }
 ]
