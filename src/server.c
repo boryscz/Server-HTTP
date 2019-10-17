@@ -652,7 +652,7 @@ void build_request(int socket,char *request_path){
     char request_method[10];
     char request_URL[11];
     char url_data[4] = {0};
-    char url[10];
+    char url[10] = {'\0'};
     url[0] = '/';
     
     sscanf(request_path,"%s %s\n", request_method, request_URL);
