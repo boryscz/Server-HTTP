@@ -415,6 +415,99 @@ void post_method(int socket, char *request_method, char *request, char *request_
 
 //DELETE
 //HEAD
+void head_method(int socket, char *request_method, char*request, char *request_data){
+    //deklaracja zmiennych
+    //otwarcie plikow
+    FILE* file = fopen("endpoints_url.txt", "r");
+    FILE *response = fopen("response.txt", "a");
+    fseek(response,0, SEEK_END);
+
+    FILE *f = fopen("books.json", "r");
+    char *line= NULL;
+    ssize_t read;
+    size_t len = 0;
+
+    //zamiana numeru identyfikacji ksiazki na long
+    char *end = NULL;
+    long id = strtol(request_data, &end, 10);  
+
+    while(1){
+        char url[30];
+        fscanf(file, "%s\n", url);
+        //sprawdzenie czy dany request url istnieje w bazie
+        if(strcmp(url,request) == 0){
+            //jesli id <= 0 to oznacza ze zwrcamy cala liste books.json
+            if(id<=0){
+                //naglowek HTTP/1.1
+                fprintf(response, "HTTP/1.1 200 OK\n");
+                fprintf(response, "Content-type: application/json\n");
+                fprintf(response, "\n");    
+                //zamkniecie deskryptorow plikow - trzeba pamietac
+                fclose(f); //zamkniecie pliku json
+                fclose(response);
+                break;
+            }else{
+                int number;
+                //czytanie books.json linia po lini w poszukiwaniu konkretnego "id"
+                while((read = getline(&line, &len, f))!= -1){
+                    sscanf( line, "\t\t\"id\": %d,\n", &number);
+                    if(number == id){ //znaleziono id - tworzenie HTTP response
+                        fprintf(response, "HTTP/1.1 200 OK\n");
+                        fprintf(response, "Content-type: application/json\n");
+                        fprintf(response, "\n");
+                        //zamknie deskryptory plikow
+                        fclose(f);
+                        fclose(response);
+                        break;
+
+                    }
+                }
+                //przypadek gdy nie zostanie znaleziony identyfikator ksiazki
+                if(read == -1){ 
+                    fprintf(response, "HTTP/1.1 201 No Content\n"); //powinno byc 204 No Content ale Postman tego nie obsługuje
+                    fprintf(response, "Content-type: text/html\n\n");
+                    fprintf(response, "<!DOCTYPE html><html><head><title>No Content 204</title></head><div id=\"main\"><div class=\"fof\"><h1>Record does not exist.</h1></div></div></html>");
+                    fclose(response);     
+                    fclose(f);
+                }
+                break;
+            }
+        }else{
+            //przypadek gdy nie znajdzie takiego url na serwerze
+            if(strcmp(url,"EOF") == 0){
+                
+                fprintf(response, "HTTP/1.1 501 Not Implemented\nContent-type: text/html\n\n");
+                fprintf(response, "<!DOCTYPE html><html><head><title>Not Implemented 501</title></head><div id=\"main\"><div class=\"fof\"><h1>URL is Not implemented.</h1></div></div></html>");
+                fclose(response);
+                fclose(f);
+                
+                break;
+            }
+        }
+    }
+    fclose(file);
+    //zapisanie response do pliku tekstowego
+    FILE *readf = fopen("response.txt", "r");
+    fseek(readf, 0, SEEK_END);
+    long fsize = ftell(readf);
+    fseek(readf, 0, SEEK_SET);
+
+    char *string = malloc(fsize + 1);
+    fread(string, 1, fsize, readf);
+    fclose(readf);
+    string[fsize] = 0;
+
+    //wyslanie odpowiedzi z serwera do klienta
+    if(write(socket, string, fsize) < 0){
+        printf("Write content error.");
+    }
+    //usuniecie pliku response.txt
+    remove("response.txt");
+
+    
+}
+
+
 void build_request(int socket,char *request_path){
     char request_method[10];
     char request_URL[11];
@@ -446,6 +539,9 @@ void build_request(int socket,char *request_path){
         put_method(socket, request_method, url, request_path);       
     }else if(strcmp("POST", request_method) == 0){
         post_method(socket, request_method, url, request_path);
+    }else if(strcmp("HEAD", request_method) == 0){
+        head_method(socket, request_method, url, url_data);
+        //printf("Jestem"); 
     }
 }
 
