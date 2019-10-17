@@ -4,3 +4,5 @@
 4. Modify one of book using PUT.
 5. DELETE modified book.
 6. ERROR PATHS.
+7. Add using POST.
+8. Test HEAD method to return statuses.
