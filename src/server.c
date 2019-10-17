@@ -504,7 +504,140 @@ void head_method(int socket, char *request_method, char*request, char *request_d
     
 }
 
-//DELETE
+//usluga DELETE HTTP/1.1
+void delete_method(int socket, char *request_method, char *request, char *request_data){
+    //deklaracja zmiennych
+    //otwarcie plikow
+    FILE* file = fopen("endpoints_url.txt", "r"); 
+    FILE *response = fopen("response.txt", "a"); //plik odpowiedzi
+    fseek(response,0, SEEK_END);
+
+    FILE *f = fopen("books.json", "r");
+    char *line= NULL;
+    ssize_t read;
+    size_t len = 0;
+
+    //konwersja id na typ long
+    char *end = NULL;
+    long id = strtol(request_data, &end, 10); 
+
+     while(1){
+        char url[30];
+        fscanf(file, "%s\n", url);
+        //sprawdzenie czy dany request url istnieje w bazie
+        if(strcmp(url,request) == 0){
+            //jesli id <= 0 to oznacza ze zwrcamy cala liste books.json - brak id
+            if(id<=0){
+                //naglowek HTTP/1.1
+                fprintf(response, "HTTP/1.1 403 Forbidden\n");
+                fprintf(response, "Content-type: text/html\n");
+                fprintf(response, "\n");    //linia przerwy oddziela dane od naglowka
+                fprintf(response, "<!DOCTYPE html><html><head><title>Forbidden 403</title></head><div id=\"main\"><div class=\"fof\"><h1>URL does not exist.</h1></div></div></html>");
+                
+                fclose(f);          //zamkniecie pliku json
+                fclose(response);   //zamkniecie pliku odpwiedzi
+                break;
+            }else{
+                int number;
+                int line_number_start = 1;
+                int line_number_end;
+                while((read = getline(&line, &len, f)) != -1){ 
+                    //znalezienie linii ktore nalezy modyfikowac w bazie
+                    sscanf( line, "\t\t\"id\": %d,\n", &number);
+                    if(number == id){
+                        line_number_start--;
+                        line_number_end = line_number_start + DATA_LINES;
+                        break;
+                    }
+                    line_number_start++;
+                    
+                    
+                }
+                fclose(f);
+                
+                
+                //przypadek gdy nie zostanie znaleziony identyfikator ksiazki
+                if(read == -1){ 
+                    fprintf(response, "HTTP/1.1 201 No Content\n"); //powinno byc 204 No Content ale Postman tego nie obsługuje
+                    fprintf(response, "Content-type: text/html\n\n");
+                    fprintf(response, "<!DOCTYPE html><html><head><title>No Content 204</title></head><div id=\"main\"><div class=\"fof\"><h1>Book does not exist.</h1></div></div></html>");
+                    fclose(response);     
+                }else{
+                    //zmaleziono obiekt
+                    fprintf(response, "HTTP/1.1 200 OK\n");
+                    fprintf(response, "Content-type: application/json\n");
+                    fprintf(response, "\n");
+                    FILE * db = fopen("books.json", "r+");
+                    //plik tymczasowy posiada kopie bazy
+                    FILE * tmp = fopen("temp.json", "w");
+                    char buffer[BUFF_SIZE];
+                    rewind(db);                 //cofniecie na poczatek pliku
+                    int line_count = 1;
+                    while ((fgets(buffer, BUFF_SIZE, db)) != NULL){
+                        if(line_number_start == 2){
+                            if(line_count == 2){
+                                fputs("    {\n", tmp);
+                                line_count++;
+                                continue;
+                            }
+                            if (line_count < line_number_start || line_count > line_number_end+1){
+                                fputs(buffer, tmp);
+                            }
+                        }else{
+                            if (line_count < line_number_start || line_count > line_number_end){
+                                fputs(buffer, tmp);
+                            }
+                            
+                        }
+                        line_count++;
+                    }
+                    fclose(tmp);
+                    fclose(db);
+                
+                    remove("books.json");
+                    rename("temp.json", "books.json");
+
+                    fclose(response);
+
+                    //Zwracanie usnietego elementu
+                }
+                break;
+            }
+        }else{
+            //przypadek gdy nie znajdzie takiego url na serwerze
+            if(strcmp(url,"EOF") == 0){
+                
+                fprintf(response, "HTTP/1.1 501 Not Implemented\nContent-type: text/html\n\n");
+                fprintf(response, "<!DOCTYPE html><html><head><title>ERROR 501</title></head><div id=\"main\"><div class=\"fof\"><h1>URL is not implemented.</h1></div></div></html>");
+                fclose(response);
+                fclose(f);
+                
+                break;
+            }
+        }
+    }
+    //zapisanie response do pliku tekstowego
+    FILE *readf = fopen("response.txt", "r");
+    fseek(readf, 0, SEEK_END);
+    long fsize = ftell(readf);
+    fseek(readf, 0, SEEK_SET);
+
+    char *string = malloc(fsize + 1);
+    fread(string, 1, fsize, readf);
+    fclose(readf);
+    string[fsize] = 0;
+
+    //wyslanie odpowiedzi z serwera do klienta
+    if(write(socket, string, fsize) < 0){
+        printf("Write content error.");
+    }
+
+    //usuniecie i zamkniecie zbednych plikow
+    remove("response.txt");
+    remove("request_data.txt");
+    fclose(file);
+
+}
 
 void build_request(int socket,char *request_path){
     char request_method[10];
@@ -539,6 +672,8 @@ void build_request(int socket,char *request_path){
         post_method(socket, request_method, url, request_path);
     }else if(strcmp("HEAD", request_method) == 0){
         head_method(socket, request_method, url, url_data);
+    }else if(strcmp("DELETE", request_method) == 0){
+        delete_method(socket, request_method, url, url_data);
     }
 }
 
