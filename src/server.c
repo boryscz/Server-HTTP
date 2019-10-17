@@ -413,13 +413,12 @@ void post_method(int socket, char *request_method, char *request, char *request_
     fclose(file);
 }
 
-//DELETE
-//HEAD
+//usluga HEAD HTTP/1.1
 void head_method(int socket, char *request_method, char*request, char *request_data){
     //deklaracja zmiennych
     //otwarcie plikow
-    FILE* file = fopen("endpoints_url.txt", "r");
-    FILE *response = fopen("response.txt", "a");
+    FILE* file = fopen("endpoints_url.txt", "r"); 
+    FILE *response = fopen("response.txt", "a"); //plik odpowiedzi
     fseek(response,0, SEEK_END);
 
     FILE *f = fopen("books.json", "r");
@@ -427,7 +426,7 @@ void head_method(int socket, char *request_method, char*request, char *request_d
     ssize_t read;
     size_t len = 0;
 
-    //zamiana numeru identyfikacji ksiazki na long
+    //konwersja id na typ long
     char *end = NULL;
     long id = strtol(request_data, &end, 10);  
 
@@ -436,15 +435,15 @@ void head_method(int socket, char *request_method, char*request, char *request_d
         fscanf(file, "%s\n", url);
         //sprawdzenie czy dany request url istnieje w bazie
         if(strcmp(url,request) == 0){
-            //jesli id <= 0 to oznacza ze zwrcamy cala liste books.json
+            //jesli id <= 0 to oznacza ze zwrcamy cala liste books.json - brak id
             if(id<=0){
                 //naglowek HTTP/1.1
                 fprintf(response, "HTTP/1.1 200 OK\n");
                 fprintf(response, "Content-type: application/json\n");
                 fprintf(response, "\n");    
-                //zamkniecie deskryptorow plikow - trzeba pamietac
-                fclose(f); //zamkniecie pliku json
-                fclose(response);
+                
+                fclose(f);          //zamkniecie pliku json
+                fclose(response);   //zamkniecie pliku odpwiedzi
                 break;
             }else{
                 int number;
@@ -466,7 +465,6 @@ void head_method(int socket, char *request_method, char*request, char *request_d
                 if(read == -1){ 
                     fprintf(response, "HTTP/1.1 201 No Content\n"); //powinno byc 204 No Content ale Postman tego nie obsługuje
                     fprintf(response, "Content-type: text/html\n\n");
-                    fprintf(response, "<!DOCTYPE html><html><head><title>No Content 204</title></head><div id=\"main\"><div class=\"fof\"><h1>Record does not exist.</h1></div></div></html>");
                     fclose(response);     
                     fclose(f);
                 }
@@ -477,7 +475,6 @@ void head_method(int socket, char *request_method, char*request, char *request_d
             if(strcmp(url,"EOF") == 0){
                 
                 fprintf(response, "HTTP/1.1 501 Not Implemented\nContent-type: text/html\n\n");
-                fprintf(response, "<!DOCTYPE html><html><head><title>Not Implemented 501</title></head><div id=\"main\"><div class=\"fof\"><h1>URL is Not implemented.</h1></div></div></html>");
                 fclose(response);
                 fclose(f);
                 
@@ -507,6 +504,7 @@ void head_method(int socket, char *request_method, char*request, char *request_d
     
 }
 
+//DELETE
 
 void build_request(int socket,char *request_path){
     char request_method[10];
@@ -541,7 +539,6 @@ void build_request(int socket,char *request_path){
         post_method(socket, request_method, url, request_path);
     }else if(strcmp("HEAD", request_method) == 0){
         head_method(socket, request_method, url, url_data);
-        //printf("Jestem"); 
     }
 }
 
