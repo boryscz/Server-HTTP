@@ -40,7 +40,7 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                 fread(string, 1, fsize, f);
                 fclose(f);
                 string[fsize] = 0;
-                fprintf(response, string);
+                fputs(string,response);
                 //zamkniecie deskryptorow plikow - trzeba pamietac
                 fclose(response);
                 break;
@@ -55,7 +55,7 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                         fprintf(response, "\n");
                         
                         fprintf(response,"{\n");
-                        fprintf(response, line);
+                        fputs(line, response);
                         if(response == NULL){
                             printf("Opening response.txt file error.");
                             exit(1);
@@ -68,7 +68,7 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                                 break;
                                 
                             }           
-                            fprintf(response, line);
+                            fputs(line, response);
                         }
                         //zamknie deskryptory plikow
                         fclose(f);
@@ -127,7 +127,7 @@ void put_method(int socket, char *request_method, char *request, char *request_d
     char tmp_buffer[BUFF_SIZE];
     strcpy(tmp_buffer, request_data);
     FILE *request_file = fopen("request.txt", "a");
-    fprintf(request_file, tmp_buffer);
+    fputs(tmp_buffer, request_file);
     fclose(request_file);
     FILE *request_read_file = fopen("request.txt", "r");
     FILE *request_data_file = fopen("request_data.txt", "a");
@@ -145,7 +145,7 @@ void put_method(int socket, char *request_method, char *request, char *request_d
             break;
         }
         if(flag){
-            fprintf(request_data_file, line);
+            fputs(line, request_data_file);
         }
     }
     remove("request.txt");
@@ -199,11 +199,11 @@ void put_method(int socket, char *request_method, char *request, char *request_d
                 fclose(read_request);
                 string[fsize] = 0;
 
-                fprintf(read_books_db, string);
+                fputs(string, read_books_db);
                 fprintf(read_books_db, "\n]\n");
 
                 fclose(read_books_db);
-                fprintf(response, string);
+                fputs(string, response);
                 fclose(response);
 
             }else{//dokonanie modyfikacji obiekut ktory dostal podany w ciele zapytania PUT
@@ -253,12 +253,12 @@ void put_method(int socket, char *request_method, char *request, char *request_d
                 fclose(read_request);
                 string[fsize] = 0;
 
-                fprintf(read_books_db, string);
+                fputs(string, read_books_db);
                 fprintf(read_books_db, "\n]\n");
 
                 //zamkniecie plikow
                 fclose(read_books_db);
-                fprintf(response, string);
+                fputs(string, response);
                 fclose(response);
             }
             break;
@@ -304,7 +304,7 @@ void post_method(int socket, char *request_method, char *request, char *request_
     char tmp_buffer[BUFF_SIZE];
     strcpy(tmp_buffer, request_data);
     FILE *request_file = fopen("request.txt", "a");
-    fprintf(request_file, tmp_buffer);
+    fputs(tmp_buffer, request_file);
     fclose(request_file);
     FILE *request_read_file = fopen("request.txt", "r");
     FILE *request_data_file = fopen("request_data.txt", "a");
@@ -322,7 +322,7 @@ void post_method(int socket, char *request_method, char *request, char *request_
             break;
         }
         if(flag){
-            fprintf(request_data_file, line);
+            fputs(line, request_data_file);
         }
     }
     remove("request.txt");
@@ -372,7 +372,7 @@ void post_method(int socket, char *request_method, char *request, char *request_
                 fclose(read_request);
                 string[fsize] = 0;
 
-                fprintf(read_books_db, string);
+                fputs(string, read_books_db);
                 fprintf(read_books_db, "\n]\n");
 
                 fclose(read_books_db);
@@ -606,11 +606,9 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                     fread(string, 1, fsize, ff);
                     fclose(ff);
                     string[fsize] = 0;
-                    fprintf(response, string);
+                    fputs(string, response);
 
                     fclose(response);
-
-                    //Zwracanie usnietego elementu
                 }
                 break;
             }
