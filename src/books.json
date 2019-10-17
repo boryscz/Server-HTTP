@@ -19,24 +19,4 @@
         "onShelf": true,
         "reader": null
     }
-    ,{
-        "id": 321,
-        "author": "Jane Kane Krow",
-        "title": "Harry Potter Cucamber of Secrets",
-        "isbn": "978",
-        "language": "english",
-        "numberOfPages": 369,
-        "onShelf": false,
-        "reader": null
-    }
-    ,{
-        "id": 111,
-        "author": "Edited Author",
-        "title": "Edited Book",
-        "isbn": "111",
-        "language": "english",
-        "numberOfPages": 111,
-        "onShelf": false,
-        "reader": null
-    }
 ]

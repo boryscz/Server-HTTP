@@ -522,7 +522,7 @@ void delete_method(int socket, char *request_method, char *request, char *reques
     long id = strtol(request_data, &end, 10); 
 
      while(1){
-        char url[30];
+        char url[30] = {'\0'}; //inicjalizacja pustymi znakami
         fscanf(file, "%s\n", url);
         //sprawdzenie czy dany request url istnieje w bazie
         if(strcmp(url,request) == 0){
