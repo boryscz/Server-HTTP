@@ -597,6 +597,17 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                     remove("books.json");
                     rename("temp.json", "books.json");
 
+                    FILE *ff = fopen("books.json","r");
+                    fseek(ff, 0, SEEK_END);
+                    long fsize = ftell(ff);
+                    fseek(ff, 0, SEEK_SET);
+
+                    char *string = malloc(fsize + 1);
+                    fread(string, 1, fsize, ff);
+                    fclose(ff);
+                    string[fsize] = 0;
+                    fprintf(response, string);
+
                     fclose(response);
 
                     //Zwracanie usnietego elementu
