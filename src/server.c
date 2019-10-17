@@ -685,7 +685,7 @@ void build_request(int socket,char *request_path){
         head_method(socket, request_method, url, url_data);
     }else if(strcmp("DELETE", request_method) == 0){
         delete_method(socket, request_method, url, url_data);
-    }
+    }//TODO dorobic write informacyjny na nieobslugiwanych methodach
 }
 
 int main(){
