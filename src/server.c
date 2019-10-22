@@ -691,8 +691,8 @@ int main(){
 
     //-----------------------------
     //server configuration
-    struct sockaddr_in server_addr, cli_addr;
-    socklen_t clilen;
+    struct sockaddr_in server_addr;
+
     char buffer[BUFF_SIZE] ={'\0'};
     int serv_sock, cli_sock;
 
@@ -700,37 +700,40 @@ int main(){
     if(serv_sock < 0){
         printf("Opening socket error.");
     }
-
+    memset(&server_addr, 0, sizeof(struct sockaddr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(8080);
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     
-    //niby zmniejsza czas oczekiwania na ponowne dowiazanie adresu/portu
-    // int nFoo = 1;
-    // setsockopt(cli_sock, SOL_SOCKET, SO_REUSEPORT, (char *) &nFoo, sizeof(nFoo));
+    char reuse_addr_val = 1;
+    setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR, (char*) &reuse_addr_val, sizeof(reuse_addr_val));
 
     if(bind(serv_sock, (struct sockaddr *) &server_addr, sizeof(server_addr))){
         printf("Binding socket error.");
     }
 
     listen(serv_sock, 5);
-    clilen = sizeof(cli_addr);
+    //clilen = sizeof(cli_addr);
 
-    cli_sock = accept(serv_sock, (struct sockaddr *) &cli_addr, &clilen);
-    if(cli_sock < 0){
-        printf("Accept Client error.");
+    while(1) {
+        cli_sock = accept(serv_sock, NULL, NULL);
+        if(cli_sock < 0){
+            printf("Accept Client error.");
+        }
+        //End of server configuration
+
+
+        if(read(cli_sock, buffer, sizeof(buffer)) < 0){
+            printf("Read error.");
+        }
+        printf("Zdechlem");
+        build_request(cli_sock,buffer);
+       //break;
+
     }
-    //End of server configuration
-
-
-    if(read(cli_sock, buffer, sizeof(buffer)) < 0){
-        printf("Read error.");
-    }
-    build_request(cli_sock,buffer);
-
     
 
     malloc(sizeof(buffer) * 64);
-
+    close(serv_sock);
     return 0;
 }

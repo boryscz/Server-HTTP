@@ -8,3 +8,7 @@
 #include <sys/types.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <time.h>
+#include <pthread.h>
