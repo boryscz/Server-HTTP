@@ -677,6 +677,7 @@ void not_implemented_method(int socket){
     remove("response.txt");
 }
 
+// HTTP request parser
 void build_request(int socket,char *request_path){
     char request_method[10];
     memset(request_method, 0, 10);
@@ -721,11 +722,14 @@ void build_request(int socket,char *request_path){
     }
     
 }
+
+//thread structure
 struct thread_data_t {
     int socket_descriptor;
     char buf[BUFF_SIZE];
 };
 
+//thread function
 void *ThreadBehaviour(void *t_data) {
     pthread_detach(pthread_self());
     struct thread_data_t *th_data = (struct thread_data_t*) t_data;
@@ -739,6 +743,7 @@ void *ThreadBehaviour(void *t_data) {
     pthread_exit(NULL);   
 }
 
+//thread and connection service
 void handleConnection(int connection_socket) {
     int create_result = 0;
     struct thread_data_t *t_data = malloc(sizeof(struct thread_data_t));
