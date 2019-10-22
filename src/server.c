@@ -23,6 +23,7 @@ void get_method(int socket,char *request_method, char *request, char *request_da
 
     while(1){
         char url[30];
+        memset(url, 0, 30);
         fscanf(file, "%s\n", url);
         //sprawdzenie czy dany request url istnieje w bazie
         if(strcmp(url,request) == 0){
@@ -650,9 +651,13 @@ void delete_method(int socket, char *request_method, char *request, char *reques
 
 void build_request(int socket,char *request_path){
     char request_method[10];
+    memset(request_method, 0, 10);
     char request_URL[11];
-    char url_data[4] = {0};
-    char url[10] = {'\0'};
+    memset(request_URL, 0, 11);
+    char url_data[4];
+    memset(url_data, 0, 4);
+    char url[10];
+    memset(url, 0, 10);
     url[0] = '/';
     
     sscanf(request_path,"%s %s\n", request_method, request_URL);
@@ -686,6 +691,41 @@ void build_request(int socket,char *request_path){
     }//TODO dorobic write informacyjny na nieobslugiwanych methodach.
     
 }
+int clients[3];
+int ile = 0;
+struct thread_data_t {
+    int socket_descriptor;
+    char buf[BUFF_SIZE];
+};
+
+void *ThreadBehaviour(void *t_data) {
+    pthread_detach(pthread_self());
+    struct thread_data_t *th_data = (struct thread_data_t*) t_data;
+    memset(th_data -> buf, 0, BUFF_SIZE);
+    
+    if(read(th_data -> socket_descriptor, th_data -> buf, BUFF_SIZE) < 0){
+        printf("Read error.");
+    }
+    build_request(th_data -> socket_descriptor, th_data->buf);
+
+    free(t_data);
+    pthread_exit(NULL);   
+}
+
+void handleConnection(int connection_socket) {
+    int create_result = 0;
+    struct thread_data_t *t_data = malloc(sizeof(struct thread_data_t));
+    pthread_t thread1;
+    t_data -> socket_descriptor = connection_socket;
+    clients[ile++] = connection_socket;
+    create_result = pthread_create(&thread1, NULL, ThreadBehaviour, (void *)t_data);
+    if(create_result < 0){
+        printf("Blad utworzenia watku");
+        exit(-1);
+    }
+
+}
+
 
 int main(){
 
@@ -696,38 +736,44 @@ int main(){
     char buffer[BUFF_SIZE] ={'\0'};
     int serv_sock, cli_sock;
 
-    serv_sock = socket(AF_INET, SOCK_STREAM, 0);
-    if(serv_sock < 0){
-        printf("Opening socket error.");
-    }
     memset(&server_addr, 0, sizeof(struct sockaddr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(8080);
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     
+    serv_sock = socket(AF_INET, SOCK_STREAM, 0);
+    if(serv_sock < 0){
+        printf("Opening socket error.");
+    }
+    
     char reuse_addr_val = 1;
     setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR, (char*) &reuse_addr_val, sizeof(reuse_addr_val));
 
-    if(bind(serv_sock, (struct sockaddr *) &server_addr, sizeof(server_addr))){
+    if(bind(serv_sock, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0){
         printf("Binding socket error.");
     }
 
-    listen(serv_sock, 5);
-    //clilen = sizeof(cli_addr);
+    if(listen(serv_sock, 5) < 0) {
+        printf("Listening error");
+    }
 
+
+    //clilen = sizeof(cli_addr);
+    cli_sock = accept(serv_sock, NULL, NULL);
+    if(cli_sock < 0){
+        printf("Accept Client error.");
+    }
     while(1) {
-        cli_sock = accept(serv_sock, NULL, NULL);
-        if(cli_sock < 0){
-            printf("Accept Client error.");
-        }
+        
+        handleConnection(cli_sock);
+         
         //End of server configuration
 
-
-        if(read(cli_sock, buffer, sizeof(buffer)) < 0){
-            printf("Read error.");
-        }
-        printf("Zdechlem");
-        build_request(cli_sock,buffer);
+        // printf("Zdechlem");
+        
+       
+        //printf("Zdechlem");
+        //build_request(cli_sock,buffer);
        //break;
 
     }
