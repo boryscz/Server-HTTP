@@ -650,6 +650,33 @@ void delete_method(int socket, char *request_method, char *request, char *reques
 
 }
 
+// return Internal Server Error (HTTP method is not implemented)
+void not_implemented_method(int socket){
+    FILE *response = fopen("response.txt", "a");
+    fprintf(response, "HTTP/1.1 500 Internal Server Error\n");
+    fprintf(response, "Content-type: text/html\n");
+    fprintf(response, "\n");    //linia przerwy oddziela dane od naglowka
+    fprintf(response, "<!DOCTYPE html><html><head><title>Internal Server Error 500</title></head><div id=\"main\"><div class=\"fof\"><h1>SERVER ERROR!!!</h1></div></div></html>");
+    fclose(response);
+    FILE *rfile = fopen("response.txt", "r");
+    fseek(rfile, 0, SEEK_END);
+    long fsize = ftell(rfile);
+    fseek(rfile, 0, SEEK_SET);
+
+    char *string = malloc(fsize + 1);
+    fread(string, 1, fsize, rfile);
+    fclose(rfile);
+    string[fsize] = 0;
+
+    //wyslanie odpowiedzi z serwera do klienta
+    if(write(socket, string, fsize) < 0){
+        printf("Write content error.");
+    }
+
+    //usuniecie i zamkniecie zbednych plikow
+    remove("response.txt");
+}
+
 void build_request(int socket,char *request_path){
     char request_method[10];
     memset(request_method, 0, 10);
@@ -690,7 +717,7 @@ void build_request(int socket,char *request_path){
     }else if(strcmp("DELETE", request_method) == 0){
         delete_method(socket, request_method, url, url_data);
     }else{
-
+        not_implemented_method(socket);
     }
     
 }
