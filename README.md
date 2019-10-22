@@ -10,7 +10,7 @@ C Language Server programming.
     * ./server
 3. Now your HTTP Server is working.
 
-## Decription
+## Description
 This simple HTTP Server handle connection with **client** (Postman or WebBrowser). 
 
 Server URL: http://127.0.0.1:8080
