@@ -743,7 +743,7 @@ void *ThreadBehaviour(void *t_data) {
     pthread_exit(NULL);   
 }
 
-//thread and connection service
+//thread and connection
 void handleConnection(int connection_socket) {
     int create_result = 0;
     struct thread_data_t *t_data = malloc(sizeof(struct thread_data_t));
@@ -763,7 +763,6 @@ int main(){
     //-----------------------------
     //server configuration
     struct sockaddr_in server_addr;
-
     int serv_sock, cli_sock;
 
     memset(&server_addr, 0, sizeof(struct sockaddr));
