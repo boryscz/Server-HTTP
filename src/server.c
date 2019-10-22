@@ -2,6 +2,7 @@
 
 #define BUFF_SIZE 1024
 #define DATA_LINES 9 //linie danych od { do }
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 //usluga GET HTTP/1.1
 void get_method(int socket,char *request_method, char *request, char *request_data ){
@@ -688,11 +689,11 @@ void build_request(int socket,char *request_path){
         head_method(socket, request_method, url, url_data);
     }else if(strcmp("DELETE", request_method) == 0){
         delete_method(socket, request_method, url, url_data);
-    }//TODO dorobic write informacyjny na nieobslugiwanych methodach.
+    }else{
+
+    }
     
 }
-int clients[3];
-int ile = 0;
 struct thread_data_t {
     int socket_descriptor;
     char buf[BUFF_SIZE];
@@ -701,14 +702,13 @@ struct thread_data_t {
 void *ThreadBehaviour(void *t_data) {
     pthread_detach(pthread_self());
     struct thread_data_t *th_data = (struct thread_data_t*) t_data;
-    memset(th_data -> buf, 0, BUFF_SIZE);
+    memset(th_data -> buf, 0, sizeof(th_data -> buf));
     
     if(read(th_data -> socket_descriptor, th_data -> buf, BUFF_SIZE) < 0){
         printf("Read error.");
     }
     build_request(th_data -> socket_descriptor, th_data->buf);
-
-    free(t_data);
+    free(th_data);
     pthread_exit(NULL);   
 }
 
@@ -716,14 +716,13 @@ void handleConnection(int connection_socket) {
     int create_result = 0;
     struct thread_data_t *t_data = malloc(sizeof(struct thread_data_t));
     pthread_t thread1;
+
     t_data -> socket_descriptor = connection_socket;
-    clients[ile++] = connection_socket;
     create_result = pthread_create(&thread1, NULL, ThreadBehaviour, (void *)t_data);
     if(create_result < 0){
         printf("Blad utworzenia watku");
         exit(-1);
     }
-
 }
 
 
@@ -733,7 +732,6 @@ int main(){
     //server configuration
     struct sockaddr_in server_addr;
 
-    char buffer[BUFF_SIZE] ={'\0'};
     int serv_sock, cli_sock;
 
     memset(&server_addr, 0, sizeof(struct sockaddr));
@@ -757,29 +755,18 @@ int main(){
         printf("Listening error");
     }
 
-
-    //clilen = sizeof(cli_addr);
-    cli_sock = accept(serv_sock, NULL, NULL);
-    if(cli_sock < 0){
-        printf("Accept Client error.");
-    }
     while(1) {
-        
+        cli_sock = accept(serv_sock, NULL, NULL);
+        if(cli_sock < 0){
+            printf("Accept Client error.");
+        }
+        pthread_mutex_lock(&mutex);
         handleConnection(cli_sock);
-         
-        //End of server configuration
-
-        // printf("Zdechlem");
-        
-       
-        //printf("Zdechlem");
-        //build_request(cli_sock,buffer);
-       //break;
-
+        sleep(1);
+        close(cli_sock);
+        pthread_mutex_unlock(&mutex);
     }
     
-
-    malloc(sizeof(buffer) * 64);
     close(serv_sock);
     return 0;
 }
