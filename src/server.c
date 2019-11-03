@@ -9,8 +9,15 @@ void get_method(int socket,char *request_method, char *request, char *request_da
 
     //deklaracja zmiennych
     //otwarcie plikow
+    char socketCLI[12];
+    memset(socketCLI, '0', 24);
+    sprintf(socketCLI, "%d", socket);
+    char responseQ[24];
+    strcpy(responseQ, socketCLI);
+    strcat(responseQ, "response.txt");
+
     FILE* file = fopen("endpoints_url.txt", "r");
-    FILE *response = fopen("response.txt", "a");
+    FILE *response = fopen(responseQ, "a");
     fseek(response,0, SEEK_END);
 
     FILE *f = fopen("books.json", "r");
@@ -104,7 +111,7 @@ void get_method(int socket,char *request_method, char *request, char *request_da
     }
     fclose(file);
     //zapisanie response do pliku tekstowego
-    FILE *readf = fopen("response.txt", "r");
+    FILE *readf = fopen(responseQ, "r");
     fseek(readf, 0, SEEK_END);
     long fsize = ftell(readf);
     fseek(readf, 0, SEEK_SET);
@@ -119,13 +126,20 @@ void get_method(int socket,char *request_method, char *request, char *request_da
         printf("Write content error.");
     }
     //usuniecie pliku response.txt
-    remove("response.txt");
+    remove(responseQ);
 }
 
 //usługa PUT HTTP/1.1
 void put_method(int socket, char *request_method, char *request, char *request_data){
     //prepair request_data to write in db;
     //---------------------------------------
+    char socketCLI[12];
+    memset(socketCLI, '0', 24);
+    sprintf(socketCLI, "%d", socket);
+    char responseQ[24];
+    strcpy(responseQ, socketCLI);
+    strcat(responseQ, "response.txt");
+
     char tmp_buffer[BUFF_SIZE];
     strcpy(tmp_buffer, request_data);
     FILE *request_file = fopen("request.txt", "a");
@@ -161,7 +175,7 @@ void put_method(int socket, char *request_method, char *request, char *request_d
     int number;
     FILE *read_db = fopen("books.json", "r+");
     FILE *read_request = fopen("request_data.txt", "r");
-    FILE *response = fopen("response.txt", "a");
+    FILE *response = fopen(responseQ, "a");
     while(1){
         char url[30];
         //poszukiwanie url'a
@@ -277,7 +291,7 @@ void put_method(int socket, char *request_method, char *request, char *request_d
     }
     
     //zapisanie response do pliku tekstowego
-    FILE *readf = fopen("response.txt", "r");
+    FILE *readf = fopen(responseQ, "r");
     fseek(readf, 0, SEEK_END);
     long fsize = ftell(readf);
     fseek(readf, 0, SEEK_SET);
@@ -293,7 +307,7 @@ void put_method(int socket, char *request_method, char *request, char *request_d
     }
 
     //usuniecie i zamkniecie zbednych plikow
-    remove("response.txt");
+    remove(responseQ);
     remove("request_data.txt");
     fclose(file);
 
@@ -303,6 +317,13 @@ void put_method(int socket, char *request_method, char *request, char *request_d
 void post_method(int socket, char *request_method, char *request, char *request_data){
     //prepair request_data to write in db;
     //---------------------------------------
+    char socketCLI[12];
+    memset(socketCLI, '0', 24);
+    sprintf(socketCLI, "%d", socket);
+    char responseQ[24];
+    strcpy(responseQ, socketCLI);
+    strcat(responseQ, "response.txt");
+
     char tmp_buffer[BUFF_SIZE];
     strcpy(tmp_buffer, request_data);
     FILE *request_file = fopen("request.txt", "a");
@@ -338,7 +359,7 @@ void post_method(int socket, char *request_method, char *request, char *request_
     int number;
     FILE *read_db = fopen("books.json", "r+");
     FILE *read_request = fopen("request_data.txt", "r");
-    FILE *response = fopen("response.txt", "a");
+    FILE *response = fopen(responseQ, "a");
     while(1){
         char url[30];
         //poszukiwanie url'a
@@ -394,7 +415,7 @@ void post_method(int socket, char *request_method, char *request, char *request_
         }
     }
     //zapisanie response do pliku tekstowego
-    FILE *readf = fopen("response.txt", "r");
+    FILE *readf = fopen(responseQ, "r");
     fseek(readf, 0, SEEK_END);
     long fsize = ftell(readf);
     fseek(readf, 0, SEEK_SET);
@@ -410,7 +431,7 @@ void post_method(int socket, char *request_method, char *request, char *request_
     }
 
     //usuniecie i zamkniecie zbednych plikow
-    remove("response.txt");
+    remove(responseQ);
     remove("request_data.txt");
     fclose(file);
 }
@@ -419,8 +440,15 @@ void post_method(int socket, char *request_method, char *request, char *request_
 void head_method(int socket, char *request_method, char*request, char *request_data){
     //deklaracja zmiennych
     //otwarcie plikow
+        char socketCLI[12];
+    memset(socketCLI, '0', 24);
+    sprintf(socketCLI, "%d", socket);
+    char responseQ[24];
+    strcpy(responseQ, socketCLI);
+    strcat(responseQ, "response.txt");
+
     FILE* file = fopen("endpoints_url.txt", "r"); 
-    FILE *response = fopen("response.txt", "a"); //plik odpowiedzi
+    FILE *response = fopen(responseQ, "a"); //plik odpowiedzi
     fseek(response,0, SEEK_END);
 
     FILE *f = fopen("books.json", "r");
@@ -486,7 +514,7 @@ void head_method(int socket, char *request_method, char*request, char *request_d
     }
     fclose(file);
     //zapisanie response do pliku tekstowego
-    FILE *readf = fopen("response.txt", "r");
+    FILE *readf = fopen(responseQ, "r");
     fseek(readf, 0, SEEK_END);
     long fsize = ftell(readf);
     fseek(readf, 0, SEEK_SET);
@@ -501,7 +529,7 @@ void head_method(int socket, char *request_method, char*request, char *request_d
         printf("Write content error.");
     }
     //usuniecie pliku response.txt
-    remove("response.txt");
+    remove(responseQ);
 
     
 }
@@ -510,8 +538,15 @@ void head_method(int socket, char *request_method, char*request, char *request_d
 void delete_method(int socket, char *request_method, char *request, char *request_data){
     //deklaracja zmiennych
     //otwarcie plikow
+    char socketCLI[12];
+    memset(socketCLI, '0', 24);
+    sprintf(socketCLI, "%d", socket);
+    char responseQ[24];
+    strcpy(responseQ, socketCLI);
+    strcat(responseQ, "response.txt");
+
     FILE* file = fopen("endpoints_url.txt", "r"); 
-    FILE *response = fopen("response.txt", "a"); //plik odpowiedzi
+    FILE *response = fopen(responseQ, "a"); //plik odpowiedzi
     fseek(response,0, SEEK_END);
 
     FILE *f = fopen("books.json", "r");
@@ -628,7 +663,7 @@ void delete_method(int socket, char *request_method, char *request, char *reques
         }
     }
     //zapisanie response do pliku tekstowego
-    FILE *readf = fopen("response.txt", "r");
+    FILE *readf = fopen(responseQ, "r");
     fseek(readf, 0, SEEK_END);
     long fsize = ftell(readf);
     fseek(readf, 0, SEEK_SET);
@@ -644,7 +679,7 @@ void delete_method(int socket, char *request_method, char *request, char *reques
     }
 
     //usuniecie i zamkniecie zbednych plikow
-    remove("response.txt");
+    remove(responseQ);
     remove("request_data.txt");
     fclose(file);
 
@@ -652,13 +687,20 @@ void delete_method(int socket, char *request_method, char *request, char *reques
 
 // return Internal Server Error (HTTP method is not implemented)
 void not_implemented_method(int socket){
-    FILE *response = fopen("response.txt", "a");
+    char socketCLI[12];
+    memset(socketCLI, '0', 24);
+    sprintf(socketCLI, "%d", socket);
+    char responseQ[24];
+    strcpy(responseQ, socketCLI);
+    strcat(responseQ, "response.txt");
+
+    FILE *response = fopen(responseQ, "a");
     fprintf(response, "HTTP/1.1 500 Internal Server Error\n");
     fprintf(response, "Content-type: text/html\n");
     fprintf(response, "\n");    //linia przerwy oddziela dane od naglowka
     fprintf(response, "<!DOCTYPE html><html><head><title>Internal Server Error 500</title></head><div id=\"main\"><div class=\"fof\"><h1>SERVER ERROR!!!</h1></div></div></html>");
     fclose(response);
-    FILE *rfile = fopen("response.txt", "r");
+    FILE *rfile = fopen(responseQ, "r");
     fseek(rfile, 0, SEEK_END);
     long fsize = ftell(rfile);
     fseek(rfile, 0, SEEK_SET);
@@ -674,7 +716,7 @@ void not_implemented_method(int socket){
     }
 
     //usuniecie i zamkniecie zbednych plikow
-    remove("response.txt");
+    remove(responseQ);
 }
 
 // HTTP request parser
@@ -734,7 +776,7 @@ void *ThreadBehaviour(void *t_data) {
     pthread_detach(pthread_self());
     struct thread_data_t *th_data = (struct thread_data_t*) t_data;
     memset(th_data -> buf, 0, sizeof(th_data -> buf));
-    
+
     if(read(th_data -> socket_descriptor, th_data -> buf, BUFF_SIZE) < 0){
         printf("Read error.");
     }
