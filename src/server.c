@@ -513,18 +513,36 @@ void post_method(int socket, char *request_method, char *request, char *request_
 void head_method(int socket, char *request_method, char*request, char *request_data){
     //deklaracja zmiennych
     //otwarcie plikow
-        char socketCLI[12];
+    char socketCLI[12];
     memset(socketCLI, '0', 24);
     sprintf(socketCLI, "%d", socket);
     char responseQ[24];
     strcpy(responseQ, socketCLI);
     strcat(responseQ, "response.txt");
 
-    FILE* file = fopen("endpoints_url.txt", "r"); 
+    pthread_mutex_lock(&endpoints_mutex);
+    FILE* file = fopen("endpoints_url.txt", "r");
+
+    int istnieje = -1;
+    //sprawdzenie endpointa
+    while(1){
+        char url[30];
+        memset(url, 0, 30);
+        fscanf(file, "%s\n", url);
+        if(strcmp(url, request) == 0){
+            istnieje = 1;
+            break;
+        }else if(strcmp(url, "EOF") == 0){
+            istnieje = -1;
+            break;
+        }
+    }
+    fclose(file);
+    pthread_mutex_unlock(&endpoints_mutex);
+
     FILE *response = fopen(responseQ, "a"); //plik odpowiedzi
     fseek(response,0, SEEK_END);
 
-    FILE *f = fopen("books.json", "r");
     char *line= NULL;
     ssize_t read;
     size_t len = 0;
@@ -534,10 +552,8 @@ void head_method(int socket, char *request_method, char*request, char *request_d
     long id = strtol(request_data, &end, 10);  
 
     while(1){
-        char url[30];
-        fscanf(file, "%s\n", url);
         //sprawdzenie czy dany request url istnieje w bazie
-        if(strcmp(url,request) == 0){
+        if(istnieje == 1){
             //jesli id <= 0 to oznacza ze zwrcamy cala liste books.json - brak id
             if(id<=0){
                 //naglowek HTTP/1.1
@@ -545,12 +561,13 @@ void head_method(int socket, char *request_method, char*request, char *request_d
                 fprintf(response, "Content-type: application/json\n");
                 fprintf(response, "\n");    
                 
-                fclose(f);          //zamkniecie pliku json
                 fclose(response);   //zamkniecie pliku odpwiedzi
                 break;
             }else{
                 int number;
                 //czytanie books.json linia po lini w poszukiwaniu konkretnego "id"
+                pthread_mutex_lock(&database_mutex);
+                FILE *f = fopen("books.json", "r");
                 while((read = getline(&line, &len, f))!= -1){
                     sscanf( line, "\t\t\"id\": %d,\n", &number);
                     if(number == id){ //znaleziono id - tworzenie HTTP response
@@ -564,28 +581,22 @@ void head_method(int socket, char *request_method, char*request, char *request_d
 
                     }
                 }
+                pthread_mutex_unlock(&database_mutex);
                 //przypadek gdy nie zostanie znaleziony identyfikator ksiazki
                 if(read == -1){ 
                     fprintf(response, "HTTP/1.1 201 No Content\n"); //powinno byc 204 No Content ale Postman tego nie obsługuje
                     fprintf(response, "Content-type: text/html\n\n");
                     fclose(response);     
-                    fclose(f);
                 }
                 break;
             }
-        }else{
+        }else if(istnieje == -1){
             //przypadek gdy nie znajdzie takiego url na serwerze
-            if(strcmp(url,"EOF") == 0){
-                
                 fprintf(response, "HTTP/1.1 501 Not Implemented\nContent-type: text/html\n\n");
                 fclose(response);
-                fclose(f);
-                
                 break;
-            }
         }
     }
-    fclose(file);
     //zapisanie response do pliku tekstowego
     FILE *readf = fopen(responseQ, "r");
     fseek(readf, 0, SEEK_END);
@@ -603,8 +614,6 @@ void head_method(int socket, char *request_method, char*request, char *request_d
     }
     //usuniecie pliku response.txt
     remove(responseQ);
-
-    
 }
 
 //usluga DELETE HTTP/1.1
