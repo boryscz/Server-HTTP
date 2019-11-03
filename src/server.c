@@ -410,16 +410,34 @@ void post_method(int socket, char *request_method, char *request, char *request_
     //-------------------------------------
 
     //otwarcie wymaganych plikow
+    pthread_mutex_lock(&endpoints_mutex);
     FILE* file = fopen("endpoints_url.txt", "r");
+
+    int istnieje = -1;
+    //sprawdzenie endpointa
+    while(1){
+        char url[30];
+        memset(url, 0, 30);
+        fscanf(file, "%s\n", url);
+        if(strcmp(url, request) == 0){
+            istnieje = 1;
+            break;
+        }else if(strcmp(url, "EOF") == 0){
+            istnieje = -1;
+            break;
+        }
+    }
+    fclose(file);
+    pthread_mutex_unlock(&endpoints_mutex);
+
     int number;
-    FILE *read_db = fopen("books.json", "r+");
     FILE *read_request = fopen(requestCLI_data, "r");
     FILE *response = fopen(responseQ, "a");
     while(1){
-        char url[30];
         //poszukiwanie url'a
-        fscanf(file, "%s\n", url);
-        if(strcmp(url,request) == 0){ //happy-path
+        if(istnieje == 1){ //happy-path
+            pthread_mutex_lock(&database_mutex);
+            FILE *read_db = fopen("books.json", "r+");
             while((read = getline(&line, &len, read_db)) != -1){ 
                 sscanf( line, "\t\t\"id\": %d,\n", &number);
                 if(number == id){
@@ -432,10 +450,12 @@ void post_method(int socket, char *request_method, char *request, char *request_
                 }
             }
             fclose(read_db);
+            pthread_mutex_unlock(&database_mutex);
             if(read == -1){// dodanie nowej ksiazki; nie istnieje ona wczesniej w bazie
                 fprintf(response, "HTTP/1.1 201 Created\n");
                 fprintf(response, "Content-type: application/json\n");
                 fprintf(response, "\n");
+                pthread_mutex_lock(&database_mutex);
                 FILE *read_books_db = fopen("books.json", "r+");
                 fseek(read_books_db, -3, SEEK_END);
                 fprintf(read_books_db, "\n    ,");
@@ -454,19 +474,18 @@ void post_method(int socket, char *request_method, char *request, char *request_
                 fprintf(read_books_db, "\n]\n");
 
                 fclose(read_books_db);
+                pthread_mutex_unlock(&database_mutex);
                 // fprintf(response, string); //dodanie utworzonego pola do odpowiedzi
                 fclose(response);
             }
             break;
-        }else{ //error-path
-            if(strcmp(url,"EOF") == 0){
+        }else if(istnieje == -1){ //error-path
                 
-                fprintf(response, "HTTP/1.1 501 Not Implemented\nContent-type: text/html\n\n");
-                fprintf(response, "<!DOCTYPE html><html><head><title>501 Not Implemented</title></head><div id=\"main\"><div class=\"fof\"><h1>URL is not implemented.</h1></div></div></html>");
-                fclose(response);
-                
-                break;
-            }
+            fprintf(response, "HTTP/1.1 501 Not Implemented\nContent-type: text/html\n\n");
+            fprintf(response, "<!DOCTYPE html><html><head><title>501 Not Implemented</title></head><div id=\"main\"><div class=\"fof\"><h1>URL is not implemented.</h1></div></div></html>");
+            fclose(response);
+            
+            break;
         }
     }
     //zapisanie response do pliku tekstowego
@@ -488,7 +507,6 @@ void post_method(int socket, char *request_method, char *request, char *request_
     //usuniecie i zamkniecie zbednych plikow
     remove(responseQ);
     remove(requestCLI_data);
-    fclose(file);
 }
 
 //usluga HEAD HTTP/1.1
