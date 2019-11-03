@@ -871,10 +871,64 @@ void *ThreadBehaviour(void *t_data) {
     pthread_detach(pthread_self());
     struct thread_data_t *th_data = (struct thread_data_t*) t_data;
     memset(th_data -> buf, 0, sizeof(th_data -> buf));
+    
+    int number_of_chars;
+    char buffer_tmp[1];
+    char read_request_buf[BUFF_SIZE];
+    memset(read_request_buf, '\0', BUFF_SIZE);
+    int flag = 0;
+    int type = 0; //if 0 \r if 1 \n
+    int iterator = 0;
+    int number_of_rn = 0;
+    while(1){
+        number_of_chars = read(th_data -> socket_descriptor, buffer_tmp, 1);
+        if(number_of_chars < 0){
+            printf("Read error.\n");
+            close(th_data->socket_descriptor);
+            exit(-1);
+        }
+        if(iterator == 0 && buffer_tmp[0] == 'P'){
+            flag = 1;
+        }
 
-    if(read(th_data -> socket_descriptor, th_data -> buf, BUFF_SIZE) < 0){
-        printf("Read error.");
+        if(flag){
+            if(number_of_rn == 2){
+                if(buffer_tmp[0] == '}'){
+                    read_request_buf[iterator] = buffer_tmp[0];
+                    break;
+                }
+            }else{
+                if(buffer_tmp[0] == '\r' && type == 0){
+                    type = 1;
+                }else if(buffer_tmp[0] == '\n' && type == 1){
+                    number_of_rn++;
+                    type = 0;
+                }else{
+                    number_of_rn = 0;
+                }
+            }
+
+        }else{
+            if(buffer_tmp[0] == '\r' && type == 0){
+                type = 1;
+            }else if(buffer_tmp[0] == '\n' && type == 1){
+                number_of_rn++;
+                type = 0;
+            }else{
+                number_of_rn = 0;
+                type = 0;
+            }
+            if(number_of_rn == 2){
+                read_request_buf[iterator] = buffer_tmp[0];
+                break;
+            }
+        }
+        //zapis do tablicy request;
+        read_request_buf[iterator] = buffer_tmp[0];
+        iterator++;
+
     }
+    strcat(th_data->buf, read_request_buf);
     build_request(th_data -> socket_descriptor, th_data->buf);
     free(th_data);
     pthread_exit(NULL);   
