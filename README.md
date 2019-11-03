@@ -17,7 +17,10 @@ Server URL: http://127.0.0.1:8080
 
 There are implemented methods:
 * **PUT /books** (with request body) example:
+    
+In postman request, please add: Content-Length: (bodyLength)
 
+    Content-length: 224
         {
                 "id": 111,
                 "author": "New Example",
@@ -28,7 +31,8 @@ There are implemented methods:
                 "onShelf": true,
                 "reader": null
             }
-    It will add or modify element in the db.
+
+It will add or modify element in the db.
 * **GET /books** it will return full list of content
 * **GET /books/id** it will return one element from database (example id=123)
 * **DELETE /books/id** it will delete one element from database and put rest of data to the response
@@ -36,6 +40,9 @@ There are implemented methods:
 * **HEAD /books/id** it will return header of response
 * **POST /books** (with requst body) example:
 
+In postman request, please add: Content-Length: (bodyLength)
+
+    Content-length: 224
         {
                 "id": 111,
                 "author": "New Example",
@@ -47,7 +54,7 @@ There are implemented methods:
                 "reader": null
             }
 
-    It will add element to the database.
+It will add element to the database.
 
 # Authors
 [Dominik Rolewski](https://github.com/drolewski)

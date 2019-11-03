@@ -5,9 +5,6 @@
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t endpoints_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t database_mutex = PTHREAD_MUTEX_INITIALIZER;
-// pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-// pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-// pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 //usluga GET HTTP/1.1
 void get_method(int socket,char *request_method, char *request, char *request_data ){
@@ -180,24 +177,31 @@ void put_method(int socket, char *request_method, char *request, char *request_d
     char *line= NULL;
     ssize_t read;
     size_t len = 0;
-    int flag = 0;
     int id = 0;
+    int content_length=0;
+    //odczytanie wartości content type'a
     while((read = getline(&line, &len, request_read_file)) != -1){
-        sscanf( line, "\t\t\"id\": %d,\n", &id);
-        if(strcmp(line, "{\n") == 0){
-            flag = 1;
-        }
-        if(strcmp(line, "}") == 0){
-            break;
-        }
-        if(flag){
-            fputs(line, request_data_file);
-        }
+        sscanf(line, "Content-Length: %d", &content_length);
     }
+    fclose(request_read_file);
+
+    //odczytanie id ksiazki z request body
+    FILE *request_read_file2 = fopen(requestCLI, "r");
+    while((read = getline(&line, &len, request_read_file2)) != -1){
+        sscanf(line, "\t\t\"id\": %d,\n", &id);
+    }
+    fseek(request_read_file2, -1*content_length, SEEK_END);
+    char znak;
+    //zapisanie do pliku request body o podanym content length
+    while(content_length >0){
+        znak = fgetc(request_read_file);
+        fputc(znak, request_data_file);
+        content_length--;
+    }
+    fclose(request_read_file2);
     remove(requestCLI);
     
     fclose(request_data_file);
-    fclose(request_read_file);
     //------------------------------------- 
     //otwarcie wymaganych plikow
     pthread_mutex_lock(&endpoints_mutex);
@@ -239,7 +243,6 @@ void put_method(int socket, char *request_method, char *request, char *request_d
                     break;
                 }
                 line_number_start++;
-                
                 
             }
             fclose(read_db);
@@ -389,24 +392,30 @@ void post_method(int socket, char *request_method, char *request, char *request_
     char *line= NULL;
     ssize_t read;
     size_t len = 0;
-    int flag = 0;
     int id = 0;
+    int content_length=0;
+    //odczytanie wartości content type'a
     while((read = getline(&line, &len, request_read_file)) != -1){
-        sscanf( line, "\t\t\"id\": %d,\n", &id);
-        if(strcmp(line, "{\n") == 0){
-            flag = 1;
-        }
-        if(strcmp(line, "}") == 0){
-            break;
-        }
-        if(flag){
-            fputs(line, request_data_file);
-        }
+        sscanf(line, "Content-Length: %d", &content_length);
     }
-    remove(requestCLI);
-    
-    fclose(request_data_file);
     fclose(request_read_file);
+
+    //odczytanie id ksiazki z request body
+    FILE *request_read_file2 = fopen(requestCLI, "r");
+    while((read = getline(&line, &len, request_read_file2)) != -1){
+        sscanf(line, "\t\t\"id\": %d,\n", &id);
+    }
+    fseek(request_read_file2, -1*content_length, SEEK_END);
+    char znak;
+    //zapisanie do pliku request body o podanym content length
+    while(content_length >0){
+        znak = fgetc(request_read_file);
+        fputc(znak, request_data_file);
+        content_length--;
+    }
+    fclose(request_read_file2);
+    remove(requestCLI);
+    fclose(request_data_file);
     //-------------------------------------
 
     //otwarcie wymaganych plikow
