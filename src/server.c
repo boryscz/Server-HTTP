@@ -627,11 +627,29 @@ void delete_method(int socket, char *request_method, char *request, char *reques
     strcpy(responseQ, socketCLI);
     strcat(responseQ, "response.txt");
 
-    FILE* file = fopen("endpoints_url.txt", "r"); 
+    pthread_mutex_lock(&endpoints_mutex);
+    FILE* file = fopen("endpoints_url.txt", "r");
+
+    int istnieje = -1;
+    //sprawdzenie endpointa
+    while(1){
+        char url[30];
+        memset(url, 0, 30);
+        fscanf(file, "%s\n", url);
+        if(strcmp(url, request) == 0){
+            istnieje = 1;
+            break;
+        }else if(strcmp(url, "EOF") == 0){
+            istnieje = -1;
+            break;
+        }
+    }
+    fclose(file);
+    pthread_mutex_unlock(&endpoints_mutex);
+
     FILE *response = fopen(responseQ, "a"); //plik odpowiedzi
     fseek(response,0, SEEK_END);
 
-    FILE *f = fopen("books.json", "r");
     char *line= NULL;
     ssize_t read;
     size_t len = 0;
@@ -641,10 +659,8 @@ void delete_method(int socket, char *request_method, char *request, char *reques
     long id = strtol(request_data, &end, 10); 
 
      while(1){
-        char url[30];
-        fscanf(file, "%s\n", url);
         //sprawdzenie czy dany request url istnieje w bazie
-        if(strcmp(url,request) == 0){
+        if(istnieje == 1){
             //jesli id <= 0 to oznacza ze zwrcamy cala liste books.json - brak id
             if(id<=0){
                 //naglowek HTTP/1.1
@@ -653,13 +669,14 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                 fprintf(response, "\n");    //linia przerwy oddziela dane od naglowka
                 fprintf(response, "<!DOCTYPE html><html><head><title>Forbidden 403</title></head><div id=\"main\"><div class=\"fof\"><h1>URL does not exist.</h1></div></div></html>");
                 
-                fclose(f);          //zamkniecie pliku json
                 fclose(response);   //zamkniecie pliku odpwiedzi
                 break;
             }else{
                 int number;
                 int line_number_start = 1;
                 int line_number_end;
+                pthread_mutex_lock(&database_mutex);
+                FILE *f = fopen("books.json", "r");
                 while((read = getline(&line, &len, f)) != -1){ 
                     //znalezienie linii ktore nalezy modyfikowac w bazie
                     sscanf( line, "\t\t\"id\": %d,\n", &number);
@@ -673,7 +690,7 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                     
                 }
                 fclose(f);
-                
+                pthread_mutex_unlock(&database_mutex);
                 
                 //przypadek gdy nie zostanie znaleziony identyfikator ksiazki
                 if(read == -1){ 
@@ -686,6 +703,7 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                     fprintf(response, "HTTP/1.1 200 OK\n");
                     fprintf(response, "Content-type: application/json\n");
                     fprintf(response, "\n");
+                    pthread_mutex_lock(&database_mutex);
                     FILE * db = fopen("books.json", "r+");
                     //plik tymczasowy posiada kopie bazy
                     FILE * tmp = fopen("temp.json", "w");
@@ -715,7 +733,9 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                 
                     remove("books.json");
                     rename("temp.json", "books.json");
+                    pthread_mutex_unlock(&database_mutex);
 
+                    pthread_mutex_lock(&database_mutex);
                     FILE *ff = fopen("books.json","r");
                     fseek(ff, 0, SEEK_END);
                     long fsize = ftell(ff);
@@ -724,6 +744,7 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                     char *string = malloc(fsize + 1);
                     fread(string, 1, fsize, ff);
                     fclose(ff);
+                    pthread_mutex_unlock(&database_mutex);
                     string[fsize] = 0;
                     fputs(string, response);
 
@@ -731,17 +752,12 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                 }
                 break;
             }
-        }else{
+        }else if(istnieje == -1){
             //przypadek gdy nie znajdzie takiego url na serwerze
-            if(strcmp(url,"EOF") == 0){
-                
                 fprintf(response, "HTTP/1.1 501 Not Implemented\nContent-type: text/html\n\n");
                 fprintf(response, "<!DOCTYPE html><html><head><title>ERROR 501</title></head><div id=\"main\"><div class=\"fof\"><h1>URL is not implemented.</h1></div></div></html>");
                 fclose(response);
-                fclose(f);
-                
                 break;
-            }
         }
     }
     //zapisanie response do pliku tekstowego
@@ -762,9 +778,6 @@ void delete_method(int socket, char *request_method, char *request, char *reques
 
     //usuniecie i zamkniecie zbednych plikow
     remove(responseQ);
-    remove("request_data.txt");
-    fclose(file);
-
 }
 
 // return Internal Server Error (HTTP method is not implemented)
