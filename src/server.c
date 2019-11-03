@@ -27,15 +27,6 @@ void get_method(int socket,char *request_method, char *request, char *request_da
     FILE *response = fopen(responseQ, "a");
     fseek(response,0, SEEK_END);
 
-    
-    char *line= NULL;
-    ssize_t read;
-    size_t len = 0;
-
-    //zamiana numeru identyfikacji ksiazki na long
-    char *end = NULL;
-    long id = strtol(request_data, &end, 10);   
-
     int istnieje = -1;
     //sprawdzenie endpointa
     while(1){
@@ -52,6 +43,14 @@ void get_method(int socket,char *request_method, char *request, char *request_da
     }
     fclose(file);
     pthread_mutex_unlock(&endpoints_mutex);
+
+    char *line= NULL;
+    ssize_t read;
+    size_t len = 0;
+
+    //zamiana numeru identyfikacji ksiazki na long
+    char *end = NULL;
+    long id = strtol(request_data, &end, 10);   
 
     while(1){
         //sprawdzenie czy dany request url istnieje w bazie
