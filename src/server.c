@@ -115,9 +115,9 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                 pthread_mutex_unlock(&database_mutex);
                 //przypadek gdy nie zostanie znaleziony identyfikator ksiazki
                 if(read == -1){ 
-                    fprintf(response, "HTTP/1.1 201 No Content\n"); //powinno byc 204 No Content ale Postman tego nie obsługuje
+                    fprintf(response, "HTTP/1.1 404 Not Found\n"); //powinno byc 204 No Content ale Postman tego nie obsługuje
                     fprintf(response, "Content-type: text/html\n\n");
-                    fprintf(response, "<!DOCTYPE html><html><head><title>No Content 204</title></head><div id=\"main\"><div class=\"fof\"><h1>Record does not exist.</h1></div></div></html>");
+                    fprintf(response, "<!DOCTYPE html><html><head><title>Not Found 404</title></head><div id=\"main\"><div class=\"fof\"><h1>Record does not exist.</h1></div></div></html>");
                     fclose(response);     
                 }
                 break;
@@ -584,7 +584,7 @@ void head_method(int socket, char *request_method, char*request, char *request_d
                 pthread_mutex_unlock(&database_mutex);
                 //przypadek gdy nie zostanie znaleziony identyfikator ksiazki
                 if(read == -1){ 
-                    fprintf(response, "HTTP/1.1 201 No Content\n"); //powinno byc 204 No Content ale Postman tego nie obsługuje
+                    fprintf(response, "HTTP/1.1 404 Not Found\n"); //powinno byc 204 No Content ale Postman tego nie obsługuje
                     fprintf(response, "Content-type: text/html\n\n");
                     fclose(response);     
                 }
