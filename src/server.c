@@ -1032,12 +1032,13 @@ int main(){
         cli_sock = accept(serv_sock, NULL, NULL);
         if(cli_sock < 0){
             printf("Accept Client error.\n");
+            close(cli_sock);
         }
         pthread_mutex_lock(&mutex);
         handleConnection(cli_sock);
         sleep(1);
-        close(cli_sock);
         pthread_mutex_unlock(&mutex);
+        close(cli_sock);
     }
     
     close(serv_sock);
