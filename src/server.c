@@ -622,14 +622,18 @@ void head_method(int socket, char *request_method, char*request, char *request_d
     long fsize = ftell(readf);
     fseek(readf, 0, SEEK_SET);
 
-    char *string = malloc(fsize + 1);
-    fread(string, 1, fsize, readf);
-    fclose(readf);
-    string[fsize] = 0;
-
-    //wyslanie odpowiedzi z serwera do klienta
-    if(write(socket, string, fsize) < 0){
-        printf("Write content error.");
+    int iterator = 0;
+    char *tmp = malloc(1);
+    while(1){
+        //wyslanie odpowiedzi z serwera do klienta
+        tmp[0] = fgetc(readf);
+        if(write(socket, tmp, 1) < 0){
+            printf("Write content error.");
+        }
+        iterator++;
+        if(iterator == fsize){
+            break;
+        }
     }
     //usuniecie pliku response.txt
     remove(responseQ);
