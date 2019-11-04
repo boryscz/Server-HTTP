@@ -72,6 +72,7 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                 fputs(string,response);
                 //zamkniecie deskryptorow plikow - trzeba pamietac
                 fclose(response);
+                free(string);
                 pthread_mutex_unlock(&database_mutex);
                 break;
             }else{
@@ -90,7 +91,6 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                         fputs(line, response);
                         if(response == NULL){
                             printf("Opening response.txt file error.");
-                            exit(1);
                         }
                         //ten while bedzie iterowal po konkretnym elemencie json'a
                         while((read = getline(&line, &len, f))!= -1){
@@ -142,12 +142,14 @@ void get_method(int socket,char *request_method, char *request, char *request_da
         tmp[0] = fgetc(readf);
         if(write(socket, tmp, 1) < 0){
             printf("Write content error.");
+            close(socket);
         }
         iterator++;
         if(iterator == fsize){
             break;
         }
     }
+    free(tmp);
     //usuniecie pliku response.txt
     remove(responseQ);
 }
@@ -276,6 +278,7 @@ void put_method(int socket, char *request_method, char *request, char *request_d
                 fclose(read_books_db);
                 fputs(string, response);
                 fclose(response);
+                free(string);
                 pthread_mutex_unlock(&database_mutex);
 
             }else{//dokonanie modyfikacji obiekut ktory dostal podany w ciele zapytania PUT
@@ -333,6 +336,7 @@ void put_method(int socket, char *request_method, char *request, char *request_d
 
                 //zamkniecie plikow
                 fclose(read_books_db);
+                free(string);
                 pthread_mutex_unlock(&database_mutex);
                 fputs(string, response);
                 fclose(response);
@@ -359,6 +363,7 @@ void put_method(int socket, char *request_method, char *request, char *request_d
         tmp[0] = fgetc(readf);
         if(write(socket, tmp, 1) < 0){
             printf("Write content error.");
+            close(socket);
         }
         iterator++;
         if(iterator == fsize){
@@ -366,6 +371,7 @@ void put_method(int socket, char *request_method, char *request, char *request_d
         }
     }
     //usuniecie i zamkniecie zbednych plikow
+    free(tmp);
     remove(responseQ);
     remove(requestCLI_data);
 }
@@ -490,6 +496,7 @@ void post_method(int socket, char *request_method, char *request, char *request_
                 fprintf(read_books_db, "\n]\n");
 
                 fclose(read_books_db);
+                free(string);
                 pthread_mutex_unlock(&database_mutex);
                 // fprintf(response, string); //dodanie utworzonego pola do odpowiedzi
                 fclose(response);
@@ -517,6 +524,7 @@ void post_method(int socket, char *request_method, char *request, char *request_
         tmp[0] = fgetc(readf);
         if(write(socket, tmp, 1) < 0){
             printf("Write content error.");
+            close(socket);
         }
         iterator++;
         if(iterator == fsize){
@@ -524,6 +532,7 @@ void post_method(int socket, char *request_method, char *request, char *request_
         }
     }
     //usuniecie i zamkniecie zbednych plikow
+    free(tmp);
     remove(responseQ);
     remove(requestCLI_data);
 }
@@ -629,6 +638,7 @@ void head_method(int socket, char *request_method, char*request, char *request_d
         tmp[0] = fgetc(readf);
         if(write(socket, tmp, 1) < 0){
             printf("Write content error.");
+            close(socket);
         }
         iterator++;
         if(iterator == fsize){
@@ -636,6 +646,7 @@ void head_method(int socket, char *request_method, char*request, char *request_d
         }
     }
     //usuniecie pliku response.txt
+    free(tmp);
     remove(responseQ);
 }
 
@@ -767,6 +778,7 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                     char *string = malloc(fsize + 1);
                     fread(string, 1, fsize, ff);
                     fclose(ff);
+                    free(string);
                     pthread_mutex_unlock(&database_mutex);
                     string[fsize] = 0;
                     fputs(string, response);
@@ -796,6 +808,7 @@ void delete_method(int socket, char *request_method, char *request, char *reques
         tmp[0] = fgetc(readf);
         if(write(socket, tmp, 1) < 0){
             printf("Write content error.");
+            close(socket);
         }
         iterator++;
         if(iterator == fsize){
@@ -803,6 +816,7 @@ void delete_method(int socket, char *request_method, char *request, char *reques
         }
     }
     //usuniecie i zamkniecie zbednych plikow
+    free(tmp);
     remove(responseQ);
 }
 
@@ -821,22 +835,30 @@ void not_implemented_method(int socket){
     fprintf(response, "\n");    //linia przerwy oddziela dane od naglowka
     fprintf(response, "<!DOCTYPE html><html><head><title>Internal Server Error 500</title></head><div id=\"main\"><div class=\"fof\"><h1>SERVER ERROR!!!</h1></div></div></html>");
     fclose(response);
-    FILE *rfile = fopen(responseQ, "r");
-    fseek(rfile, 0, SEEK_END);
-    long fsize = ftell(rfile);
-    fseek(rfile, 0, SEEK_SET);
+    
+    //zapisanie response do pliku tekstowego
+    FILE *readf = fopen(responseQ, "r");
+    fseek(readf, 0, SEEK_END);
+    long fsize = ftell(readf);
+    fseek(readf, 0, SEEK_SET);
 
-    char *string = malloc(fsize + 1);
-    fread(string, 1, fsize, rfile);
-    fclose(rfile);
-    string[fsize] = 0;
-
-    //wyslanie odpowiedzi z serwera do klienta
-    if(write(socket, string, fsize) < 0){
-        printf("Write content error.");
+    int iterator = 0;
+    char *tmp = malloc(1);
+    while(1){
+        //wyslanie odpowiedzi z serwera do klienta
+        tmp[0] = fgetc(readf);
+        if(write(socket, tmp, 1) < 0){
+            printf("Write content error.");
+            close(socket);
+        }
+        iterator++;
+        if(iterator == fsize){
+            break;
+        }
+        
     }
-
     //usuniecie i zamkniecie zbednych plikow
+    free(tmp);
     remove(responseQ);
 }
 
@@ -911,7 +933,6 @@ void *ThreadBehaviour(void *t_data) {
         if(number_of_chars < 0){
             printf("Read error.\n");
             close(th_data->socket_descriptor);
-            exit(-1);
         }
         if(iterator == 0 && buffer_tmp[0] == 'P'){
             flag = 1;
@@ -972,6 +993,7 @@ void handleConnection(int connection_socket) {
         printf("Blad utworzenia watku");
         exit(-1);
     }
+    // close(connection_socket);
 }
 
 
@@ -989,24 +1011,27 @@ int main(){
     
     serv_sock = socket(AF_INET, SOCK_STREAM, 0);
     if(serv_sock < 0){
-        printf("Opening socket error.");
+        printf("Opening socket error.\n");
+        exit(-1);
     }
     
     char reuse_addr_val = 1;
     setsockopt(serv_sock, SOL_SOCKET, SO_REUSEADDR, (char*) &reuse_addr_val, sizeof(reuse_addr_val));
 
     if(bind(serv_sock, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0){
-        printf("Binding socket error.");
+        printf("Binding socket error.\n");
+        exit(-1);
     }
 
     if(listen(serv_sock, 5) < 0) {
-        printf("Listening error");
+        printf("Listening error.\n");
+        exit(-1);
     }
 
     while(1) {
         cli_sock = accept(serv_sock, NULL, NULL);
         if(cli_sock < 0){
-            printf("Accept Client error.");
+            printf("Accept Client error.\n");
         }
         pthread_mutex_lock(&mutex);
         handleConnection(cli_sock);
