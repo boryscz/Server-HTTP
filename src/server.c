@@ -6,6 +6,7 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t endpoints_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t database_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+int global_sockets[BUFF_SIZE];
 //usluga GET HTTP/1.1
 void get_method(int socket,char *request_method, char *request, char *request_data ){
 
@@ -975,8 +976,10 @@ void *ThreadBehaviour(void *t_data) {
         iterator++;
 
     }
+    printf("%d\n", th_data->socket_descriptor);
     strcat(th_data->buf, read_request_buf);
     build_request(th_data -> socket_descriptor, th_data->buf);
+    close(th_data-> socket_descriptor);
     free(th_data);
     pthread_exit(NULL);   
 }
@@ -986,19 +989,31 @@ void handleConnection(int connection_socket) {
     int create_result = 0;
     struct thread_data_t *t_data = malloc(sizeof(struct thread_data_t));
     pthread_t thread1;
-
-    t_data -> socket_descriptor = connection_socket;
-    create_result = pthread_create(&thread1, NULL, ThreadBehaviour, (void *)t_data);
-    if(create_result < 0){
-        printf("Blad utworzenia watku");
-        exit(-1);
+    int flag = 0;
+    for(int i = 0; i < BUFF_SIZE; i++){
+        if(global_sockets[i] == connection_socket){
+            flag = 0;
+            break;
+        }else if(global_sockets[i] == 0){
+            global_sockets[i] = connection_socket;
+            flag = i;
+            break;
+        }
+    }
+    if(flag > 0){
+        t_data -> socket_descriptor = connection_socket;
+        create_result = pthread_create(&thread1, NULL, ThreadBehaviour, (void *)t_data);
+        if(create_result < 0){
+            printf("Blad utworzenia watku");
+            exit(-1);
+        }
+        global_sockets[flag] = 0;
     }
     // close(connection_socket);
 }
 
-
 int main(){
-
+    memset(global_sockets, '0', BUFF_SIZE);
     //-----------------------------
     //server configuration
     struct sockaddr_in server_addr;
@@ -1034,11 +1049,7 @@ int main(){
             printf("Accept Client error.\n");
             close(cli_sock);
         }
-        pthread_mutex_lock(&mutex);
         handleConnection(cli_sock);
-        sleep(1);
-        pthread_mutex_unlock(&mutex);
-        close(cli_sock);
     }
     
     close(serv_sock);
