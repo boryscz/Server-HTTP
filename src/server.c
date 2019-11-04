@@ -310,9 +310,9 @@ void put_method(int socket, char *request_method, char *request, char *request_d
                 fclose(db);
                 remove("books.json");
                 rename("temp.json", "books.json");
-                pthread_mutex_unlock(&database_mutex);
+                // pthread_mutex_unlock(&database_mutex); //przy przelączeniu kontekstu mozliwy brudny odczzyt danych
 
-                pthread_mutex_lock(&database_mutex);
+                // pthread_mutex_lock(&database_mutex);
                 //zapisanie odpowiedzi do pliku tymczasowego reponse.txt
                 FILE *read_books_db = fopen("books.json", "r+");
                 fseek(read_books_db, -3, SEEK_END);
@@ -756,9 +756,9 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                 
                     remove("books.json");
                     rename("temp.json", "books.json");
-                    pthread_mutex_unlock(&database_mutex);
+                    // pthread_mutex_unlock(&database_mutex); //brudny odczyt
 
-                    pthread_mutex_lock(&database_mutex);
+                    // pthread_mutex_lock(&database_mutex);
                     FILE *ff = fopen("books.json","r");
                     fseek(ff, 0, SEEK_END);
                     long fsize = ftell(ff);
