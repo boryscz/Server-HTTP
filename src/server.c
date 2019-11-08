@@ -472,6 +472,14 @@ void post_method(int socket, char *request_method, char *request, char *request_
     }
     fclose(file);
 
+    if(readers > 0){
+        pthread_cond_wait(&cond, &mutex);
+    }
+    pthread_mutex_lock(&var_writer_mutex);
+    writer = 1;
+    pthread_mutex_unlock(&var_writer_mutex);
+
+    pthread_mutex_lock(&mutex);
     int number;
     FILE *read_request = fopen(requestCLI_data, "r");
     FILE *response = fopen(responseQ, "a");
@@ -531,6 +539,11 @@ void post_method(int socket, char *request_method, char *request, char *request_
             break;
         }
     }
+    pthread_mutex_unlock(&mutex);
+    pthread_cond_signal(&cond_read);
+    pthread_mutex_lock(&var_writer_mutex);
+    writer = 0;
+    pthread_mutex_unlock(&var_writer_mutex);
     //zapisanie response do pliku tekstowego
     FILE *readf = fopen(responseQ, "r");
     fseek(readf, 0, SEEK_END);
