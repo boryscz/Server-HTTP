@@ -3,8 +3,13 @@
 #define BUFF_SIZE 1024
 #define DATA_LINES 9 //linie danych od { do }
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t endpoints_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t database_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t var_reader_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t var_writer_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t	cond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t	cond_read = PTHREAD_COND_INITIALIZER;
+int readers = 0; //number of readers
+int writer = 0; //0 writer out; 1 writer in;
 
 int global_sockets[BUFF_SIZE];
 //usluga GET HTTP/1.1
@@ -23,9 +28,7 @@ void get_method(int socket,char *request_method, char *request, char *request_da
     FILE *response = fopen(responseQ, "a");
     fseek(response,0, SEEK_END);
 
-    pthread_mutex_lock(&endpoints_mutex);
     FILE* file = fopen("endpoints_url.txt", "r");
-
     int istnieje = -1;
     //sprawdzenie endpointa
     while(1){
@@ -41,7 +44,6 @@ void get_method(int socket,char *request_method, char *request, char *request_da
         }
     }
     fclose(file);
-    pthread_mutex_unlock(&endpoints_mutex);
 
     char *line= NULL;
     ssize_t read;
@@ -54,10 +56,15 @@ void get_method(int socket,char *request_method, char *request, char *request_da
     while(1){
         //sprawdzenie czy dany request url istnieje w bazie
         if(istnieje == 1){
+            if(writer == 1){
+                pthread_cond_wait(&cond_read, &mutex);
+            }
+            pthread_mutex_lock(&var_reader_mutex);
+            readers += 1;
+            pthread_mutex_unlock(&var_reader_mutex);
             //jesli id <= 0 to oznacza ze zwrcamy cala liste books.json
             if(id<=0){
                 //naglowek HTTP/1.1
-                pthread_mutex_lock(&database_mutex);
                 FILE *f = fopen("books.json", "r");
                 fprintf(response, "HTTP/1.1 200 OK\n");
                 fprintf(response, "Content-type: application/json\n");
@@ -74,12 +81,10 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                 //zamkniecie deskryptorow plikow - trzeba pamietac
                 fclose(response);
                 free(string);
-                pthread_mutex_unlock(&database_mutex);
-                break;
+                // break;
             }else{
                 int number;
                 //czytanie books.json linia po lini w poszukiwaniu konkretnego "id"
-                pthread_mutex_lock(&database_mutex);
                 FILE *f = fopen("books.json", "r");
                 while((read = getline(&line, &len, f))!= -1){
                     sscanf( line, "\t\t\"id\": %d,\n", &number);
@@ -110,7 +115,6 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                     }
                 }
                 fclose(f);
-                pthread_mutex_unlock(&database_mutex);
                 //przypadek gdy nie zostanie znaleziony identyfikator ksiazki
                 if(read == -1){ 
                     fprintf(response, "HTTP/1.1 404 Not Found\n"); //powinno byc 204 No Content ale Postman tego nie obsługuje
@@ -118,8 +122,15 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                     fprintf(response, "<!DOCTYPE html><html><head><title>Not Found 404</title></head><div id=\"main\"><div class=\"fof\"><h1>Record does not exist.</h1></div></div></html>");
                     fclose(response);     
                 }
-                break;
+                // break;
             }
+            pthread_mutex_lock(&var_reader_mutex);
+            readers--;
+            pthread_mutex_unlock(&var_reader_mutex);
+            if(readers == 0){
+                pthread_cond_signal(&cond);
+            }
+            break;
         }else if(istnieje == -1){
             //przypadek gdy nie znajdzie takiego url na serwerze
         
@@ -211,7 +222,6 @@ void put_method(int socket, char *request_method, char *request, char *request_d
     fclose(request_data_file);
     //------------------------------------- 
     //otwarcie wymaganych plikow
-    pthread_mutex_lock(&endpoints_mutex);
     FILE* file = fopen("endpoints_url.txt", "r");
 
     int istnieje = -1;
@@ -229,8 +239,15 @@ void put_method(int socket, char *request_method, char *request, char *request_d
         }
     }
     fclose(file);
-    pthread_mutex_unlock(&endpoints_mutex);
 
+    if(readers > 0){
+        pthread_cond_wait(&cond, &mutex);
+    }
+    pthread_mutex_lock(&var_writer_mutex);
+    writer = 1;
+    pthread_mutex_unlock(&var_writer_mutex);
+
+    pthread_mutex_lock(&mutex);
     int number;
     FILE *read_request = fopen(requestCLI_data, "r");
     FILE *response = fopen(responseQ, "a");
@@ -351,6 +368,11 @@ void put_method(int socket, char *request_method, char *request, char *request_d
             break;
         }
     }
+    pthread_mutex_unlock(&mutex);
+    pthread_cond_signal(&cond_read);
+    pthread_mutex_lock(&var_writer_mutex);
+    writer = 0;
+    pthread_mutex_unlock(&var_writer_mutex);
     //zapisanie response do pliku tekstowego
     FILE *readf = fopen(responseQ, "r");
     fseek(readf, 0, SEEK_END);
@@ -433,7 +455,7 @@ void post_method(int socket, char *request_method, char *request, char *request_
     //-------------------------------------
 
     //otwarcie wymaganych plikow
-    pthread_mutex_lock(&endpoints_mutex);
+
     FILE* file = fopen("endpoints_url.txt", "r");
 
     int istnieje = -1;
@@ -451,7 +473,6 @@ void post_method(int socket, char *request_method, char *request, char *request_
         }
     }
     fclose(file);
-    pthread_mutex_unlock(&endpoints_mutex);
 
     int number;
     FILE *read_request = fopen(requestCLI_data, "r");
@@ -549,7 +570,6 @@ void head_method(int socket, char *request_method, char*request, char *request_d
     strcpy(responseQ, socketCLI);
     strcat(responseQ, "response.txt");
 
-    pthread_mutex_lock(&endpoints_mutex);
     FILE* file = fopen("endpoints_url.txt", "r");
 
     int istnieje = -1;
@@ -567,7 +587,6 @@ void head_method(int socket, char *request_method, char*request, char *request_d
         }
     }
     fclose(file);
-    pthread_mutex_unlock(&endpoints_mutex);
 
     FILE *response = fopen(responseQ, "a"); //plik odpowiedzi
     fseek(response,0, SEEK_END);
@@ -662,7 +681,6 @@ void delete_method(int socket, char *request_method, char *request, char *reques
     strcpy(responseQ, socketCLI);
     strcat(responseQ, "response.txt");
 
-    pthread_mutex_lock(&endpoints_mutex);
     FILE* file = fopen("endpoints_url.txt", "r");
 
     int istnieje = -1;
@@ -680,7 +698,6 @@ void delete_method(int socket, char *request_method, char *request, char *reques
         }
     }
     fclose(file);
-    pthread_mutex_unlock(&endpoints_mutex);
 
     FILE *response = fopen(responseQ, "a"); //plik odpowiedzi
     fseek(response,0, SEEK_END);
