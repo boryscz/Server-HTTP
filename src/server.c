@@ -81,7 +81,6 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                 //zamkniecie deskryptorow plikow - trzeba pamietac
                 fclose(response);
                 free(string);
-                // break;
             }else{
                 int number;
                 //czytanie books.json linia po lini w poszukiwaniu konkretnego "id"
@@ -122,7 +121,6 @@ void get_method(int socket,char *request_method, char *request, char *request_da
                     fprintf(response, "<!DOCTYPE html><html><head><title>Not Found 404</title></head><div id=\"main\"><div class=\"fof\"><h1>Record does not exist.</h1></div></div></html>");
                     fclose(response);     
                 }
-                // break;
             }
             pthread_mutex_lock(&var_reader_mutex);
             readers--;
@@ -602,6 +600,12 @@ void head_method(int socket, char *request_method, char*request, char *request_d
     while(1){
         //sprawdzenie czy dany request url istnieje w bazie
         if(istnieje == 1){
+            if(writer == 1){
+                pthread_cond_wait(&cond_read, &mutex);
+            }
+            pthread_mutex_lock(&var_reader_mutex);
+            readers += 1;
+            pthread_mutex_unlock(&var_reader_mutex);
             //jesli id <= 0 to oznacza ze zwrcamy cala liste books.json - brak id
             if(id<=0){
                 //naglowek HTTP/1.1
@@ -610,11 +614,9 @@ void head_method(int socket, char *request_method, char*request, char *request_d
                 fprintf(response, "\n");    
                 
                 fclose(response);   //zamkniecie pliku odpwiedzi
-                break;
             }else{
                 int number;
                 //czytanie books.json linia po lini w poszukiwaniu konkretnego "id"
-                pthread_mutex_lock(&database_mutex);
                 FILE *f = fopen("books.json", "r");
                 while((read = getline(&line, &len, f))!= -1){
                     sscanf( line, "\t\t\"id\": %d,\n", &number);
@@ -629,15 +631,20 @@ void head_method(int socket, char *request_method, char*request, char *request_d
 
                     }
                 }
-                pthread_mutex_unlock(&database_mutex);
                 //przypadek gdy nie zostanie znaleziony identyfikator ksiazki
                 if(read == -1){ 
                     fprintf(response, "HTTP/1.1 404 Not Found\n"); //powinno byc 204 No Content ale Postman tego nie obsługuje
                     fprintf(response, "Content-type: text/html\n\n");
                     fclose(response);     
                 }
-                break;
             }
+            pthread_mutex_lock(&var_reader_mutex);
+            readers--;
+            pthread_mutex_unlock(&var_reader_mutex);
+            if(readers == 0){
+                pthread_cond_signal(&cond);
+            }
+            break;
         }else if(istnieje == -1){
             //przypadek gdy nie znajdzie takiego url na serwerze
                 fprintf(response, "HTTP/1.1 501 Not Implemented\nContent-type: text/html\n\n");
