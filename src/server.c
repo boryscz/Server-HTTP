@@ -934,6 +934,9 @@ void *ThreadBehaviour(void *t_data) {
         if(number_of_chars < 0){
             printf("Read error.\n");
             close(th_data->socket_descriptor);
+        }else if(number_of_chars == 0){
+            printf("Client disconnected.\n");
+            close(th_data->socket_descriptor);
         }
         if(iterator == 0 && buffer_tmp[0] == 'P'){
             flag = 1;
