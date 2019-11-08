@@ -2,11 +2,11 @@
 
 #define BUFF_SIZE 1024
 #define DATA_LINES 9 //linie danych od { do }
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t database_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t var_reader_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t var_writer_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t	cond = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; //cond mutex
+pthread_mutex_t mutex_writer = PTHREAD_MUTEX_INITIALIZER; //mutex to synchronize writers
+pthread_mutex_t var_reader_mutex = PTHREAD_MUTEX_INITIALIZER; //mutex for readers variable
+pthread_mutex_t var_writer_mutex = PTHREAD_MUTEX_INITIALIZER; //mutex for writer variable
+pthread_cond_t	cond = PTHREAD_COND_INITIALIZER; 
 pthread_cond_t	cond_read = PTHREAD_COND_INITIALIZER;
 int readers = 0; //number of readers
 int writer = 0; //0 writer out; 1 writer in;
@@ -245,14 +245,13 @@ void put_method(int socket, char *request_method, char *request, char *request_d
     writer = 1;
     pthread_mutex_unlock(&var_writer_mutex);
 
-    pthread_mutex_lock(&mutex);
+    pthread_mutex_lock(&mutex_writer);
     int number;
     FILE *read_request = fopen(requestCLI_data, "r");
     FILE *response = fopen(responseQ, "a");
     while(1){
         //poszukiwanie url'a
         if(istnieje == 1){ //happy-path
-            pthread_mutex_lock(&database_mutex);
             FILE *read_db = fopen("books.json", "r+");
             int line_number_start = 1;
             int line_number_end;
@@ -268,12 +267,10 @@ void put_method(int socket, char *request_method, char *request, char *request_d
                 
             }
             fclose(read_db);
-            pthread_mutex_unlock(&database_mutex);
             if(read == -1){// dodanie nowej ksiazki; nie istnieje ona wczesniej w bazie
                 fprintf(response, "HTTP/1.1 201 Created\n");
                 fprintf(response, "Content-type: application/json\n");
                 fprintf(response, "\n");
-                pthread_mutex_lock(&database_mutex);
                 FILE *read_books_db = fopen("books.json", "r+");
                 fseek(read_books_db, -3, SEEK_END);
                 fprintf(read_books_db, "\n    ,");
@@ -295,13 +292,11 @@ void put_method(int socket, char *request_method, char *request, char *request_d
                 fputs(string, response);
                 fclose(response);
                 free(string);
-                pthread_mutex_unlock(&database_mutex);
 
             }else{//dokonanie modyfikacji obiekut ktory dostal podany w ciele zapytania PUT
                 fprintf(response, "HTTP/1.1 200 OK\n");
                 fprintf(response, "Content-type: application/json\n");
                 fprintf(response, "\n");
-                pthread_mutex_lock(&database_mutex);
                 FILE * db = fopen("books.json", "r+");
                 //plik tymczasowy posiada kopie bazy
                 FILE * tmp = fopen("temp.json", "w");
@@ -329,9 +324,7 @@ void put_method(int socket, char *request_method, char *request, char *request_d
                 fclose(db);
                 remove("books.json");
                 rename("temp.json", "books.json");
-                // pthread_mutex_unlock(&database_mutex); //przy przelączeniu kontekstu mozliwy brudny odczzyt danych
 
-                // pthread_mutex_lock(&database_mutex);
                 //zapisanie odpowiedzi do pliku tymczasowego reponse.txt
                 FILE *read_books_db = fopen("books.json", "r+");
                 fseek(read_books_db, -3, SEEK_END);
@@ -353,7 +346,6 @@ void put_method(int socket, char *request_method, char *request, char *request_d
                 //zamkniecie plikow
                 fclose(read_books_db);
                 free(string);
-                pthread_mutex_unlock(&database_mutex);
                 fputs(string, response);
                 fclose(response);
             }
@@ -366,11 +358,11 @@ void put_method(int socket, char *request_method, char *request, char *request_d
             break;
         }
     }
-    pthread_mutex_unlock(&mutex);
-    pthread_cond_signal(&cond_read);
+    pthread_mutex_unlock(&mutex_writer);
     pthread_mutex_lock(&var_writer_mutex);
     writer = 0;
     pthread_mutex_unlock(&var_writer_mutex);
+    pthread_cond_signal(&cond_read);
     //zapisanie response do pliku tekstowego
     FILE *readf = fopen(responseQ, "r");
     fseek(readf, 0, SEEK_END);
@@ -479,14 +471,13 @@ void post_method(int socket, char *request_method, char *request, char *request_
     writer = 1;
     pthread_mutex_unlock(&var_writer_mutex);
 
-    pthread_mutex_lock(&mutex);
+    pthread_mutex_lock(&mutex_writer);
     int number;
     FILE *read_request = fopen(requestCLI_data, "r");
     FILE *response = fopen(responseQ, "a");
     while(1){
         //poszukiwanie url'a
         if(istnieje == 1){ //happy-path
-            pthread_mutex_lock(&database_mutex);
             FILE *read_db = fopen("books.json", "r+");
             while((read = getline(&line, &len, read_db)) != -1){ 
                 sscanf( line, "\t\t\"id\": %d,\n", &number);
@@ -500,12 +491,10 @@ void post_method(int socket, char *request_method, char *request, char *request_
                 }
             }
             fclose(read_db);
-            pthread_mutex_unlock(&database_mutex);
             if(read == -1){// dodanie nowej ksiazki; nie istnieje ona wczesniej w bazie
                 fprintf(response, "HTTP/1.1 201 Created\n");
                 fprintf(response, "Content-type: application/json\n");
                 fprintf(response, "\n");
-                pthread_mutex_lock(&database_mutex);
                 FILE *read_books_db = fopen("books.json", "r+");
                 fseek(read_books_db, -3, SEEK_END);
                 fprintf(read_books_db, "\n    ,");
@@ -525,8 +514,6 @@ void post_method(int socket, char *request_method, char *request, char *request_
 
                 fclose(read_books_db);
                 free(string);
-                pthread_mutex_unlock(&database_mutex);
-                // fprintf(response, string); //dodanie utworzonego pola do odpowiedzi
                 fclose(response);
             }
             break;
@@ -539,11 +526,11 @@ void post_method(int socket, char *request_method, char *request, char *request_
             break;
         }
     }
-    pthread_mutex_unlock(&mutex);
-    pthread_cond_signal(&cond_read);
+    pthread_mutex_unlock(&mutex_writer);
     pthread_mutex_lock(&var_writer_mutex);
     writer = 0;
     pthread_mutex_unlock(&var_writer_mutex);
+    pthread_cond_signal(&cond_read);
     //zapisanie response do pliku tekstowego
     FILE *readf = fopen(responseQ, "r");
     fseek(readf, 0, SEEK_END);
@@ -737,7 +724,7 @@ void delete_method(int socket, char *request_method, char *request, char *reques
     writer = 1;
     pthread_mutex_unlock(&var_writer_mutex);
 
-    pthread_mutex_lock(&mutex);
+    pthread_mutex_lock(&mutex_writer);
     while(1){
         //sprawdzenie czy dany request url istnieje w bazie
         if(istnieje == 1){
@@ -755,7 +742,6 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                 int number;
                 int line_number_start = 1;
                 int line_number_end;
-                pthread_mutex_lock(&database_mutex);
                 FILE *f = fopen("books.json", "r");
                 while((read = getline(&line, &len, f)) != -1){ 
                     //znalezienie linii ktore nalezy modyfikowac w bazie
@@ -770,7 +756,6 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                     
                 }
                 fclose(f);
-                pthread_mutex_unlock(&database_mutex);
                 
                 //przypadek gdy nie zostanie znaleziony identyfikator ksiazki
                 if(read == -1){ 
@@ -783,7 +768,6 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                     fprintf(response, "HTTP/1.1 200 OK\n");
                     fprintf(response, "Content-type: application/json\n");
                     fprintf(response, "\n");
-                    pthread_mutex_lock(&database_mutex);
                     FILE * db = fopen("books.json", "r+");
                     //plik tymczasowy posiada kopie bazy
                     FILE * tmp = fopen("temp.json", "w");
@@ -813,9 +797,7 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                 
                     remove("books.json");
                     rename("temp.json", "books.json");
-                    // pthread_mutex_unlock(&database_mutex); //brudny odczyt
 
-                    // pthread_mutex_lock(&database_mutex);
                     FILE *ff = fopen("books.json","r");
                     fseek(ff, 0, SEEK_END);
                     long fsize = ftell(ff);
@@ -825,7 +807,6 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                     fread(string, 1, fsize, ff);
                     fclose(ff);
                     free(string);
-                    pthread_mutex_unlock(&database_mutex);
                     string[fsize] = 0;
                     fputs(string, response);
 
@@ -841,11 +822,11 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                 break;
         }
     }
-    pthread_mutex_unlock(&mutex);
-    pthread_cond_signal(&cond_read);
+    pthread_mutex_unlock(&mutex_writer);
     pthread_mutex_lock(&var_writer_mutex);
     writer = 0;
     pthread_mutex_unlock(&var_writer_mutex);
+    pthread_cond_signal(&cond_read);
     //zapisanie response do pliku tekstowego
     FILE *readf = fopen(responseQ, "r");
     fseek(readf, 0, SEEK_END);
