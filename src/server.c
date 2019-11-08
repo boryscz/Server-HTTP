@@ -730,7 +730,15 @@ void delete_method(int socket, char *request_method, char *request, char *reques
     char *end = NULL;
     long id = strtol(request_data, &end, 10); 
 
-     while(1){
+    if(readers > 0){
+        pthread_cond_wait(&cond, &mutex);
+    }
+    pthread_mutex_lock(&var_writer_mutex);
+    writer = 1;
+    pthread_mutex_unlock(&var_writer_mutex);
+
+    pthread_mutex_lock(&mutex);
+    while(1){
         //sprawdzenie czy dany request url istnieje w bazie
         if(istnieje == 1){
             //jesli id <= 0 to oznacza ze zwrcamy cala liste books.json - brak id
@@ -833,6 +841,11 @@ void delete_method(int socket, char *request_method, char *request, char *reques
                 break;
         }
     }
+    pthread_mutex_unlock(&mutex);
+    pthread_cond_signal(&cond_read);
+    pthread_mutex_lock(&var_writer_mutex);
+    writer = 0;
+    pthread_mutex_unlock(&var_writer_mutex);
     //zapisanie response do pliku tekstowego
     FILE *readf = fopen(responseQ, "r");
     fseek(readf, 0, SEEK_END);
