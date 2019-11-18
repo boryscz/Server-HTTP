@@ -3,11 +3,8 @@
 #define BUFF_SIZE 1024
 #define DATA_LINES 9 //linie danych od { do }
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; //cond mutex
-pthread_mutex_t mutex_writer = PTHREAD_MUTEX_INITIALIZER; //mutex to synchronize writers
 pthread_mutex_t var_reader_mutex = PTHREAD_MUTEX_INITIALIZER; //mutex for readers variable
-pthread_mutex_t var_writer_mutex = PTHREAD_MUTEX_INITIALIZER; //mutex for writer variable
 pthread_cond_t	cond = PTHREAD_COND_INITIALIZER; 
-pthread_cond_t	cond_read = PTHREAD_COND_INITIALIZER;
 int readers = 0; //number of readers
 int writer = 0; //0 writer out; 1 writer in;
 
@@ -127,7 +124,6 @@ void get_method(int socket,char *request_method, char *request, char *request_da
             readers--;
             pthread_mutex_unlock(&var_reader_mutex);
             while(readers > 0){
-                //pthread_cond_signal(&cond);
                 pthread_cond_wait(&cond, &mutex);
             }
             pthread_cond_signal(&cond);
@@ -246,11 +242,8 @@ void put_method(int socket, char *request_method, char *request, char *request_d
     while(writer ==  1){
         pthread_cond_wait(&cond, &mutex); //cond
     }
-    //pthread_mutex_lock(&var_writer_mutex);
     writer = 1;
-    //pthread_mutex_unlock(&var_writer_mutex);
 
-    //pthread_mutex_lock(&mutex_writer);
     int number;
     FILE *read_request = fopen(requestCLI_data, "r");
     FILE *response = fopen(responseQ, "a");
@@ -366,10 +359,7 @@ void put_method(int socket, char *request_method, char *request, char *request_d
     while(readers > 0) {
          pthread_cond_wait(&cond, &mutex); //cond
     }
-    //pthread_mutex_unlock(&mutex_writer);
-    //pthread_mutex_lock(&var_writer_mutex);
     writer = 0;
-    //pthread_mutex_unlock(&var_writer_mutex);
     pthread_cond_broadcast(&cond);
     pthread_mutex_unlock(&mutex);
     //zapisanie response do pliku tekstowego
@@ -477,11 +467,8 @@ void post_method(int socket, char *request_method, char *request, char *request_
     while(writer == 1){
         pthread_cond_wait(&cond, &mutex);
     }
-    //pthread_mutex_lock(&var_writer_mutex);
     writer = 1;
-    //pthread_mutex_unlock(&var_writer_mutex);
 
-    //pthread_mutex_lock(&mutex_writer);
     int number;
     FILE *read_request = fopen(requestCLI_data, "r");
     FILE *response = fopen(responseQ, "a");
@@ -539,10 +526,7 @@ void post_method(int socket, char *request_method, char *request, char *request_
     while(readers > 0 ) {
          pthread_cond_wait(&cond, &mutex);
     }
-    //pthread_mutex_unlock(&mutex_writer);
-    //pthread_mutex_lock(&var_writer_mutex);
     writer = 0;
-    //pthread_mutex_unlock(&var_writer_mutex);
     pthread_cond_broadcast(&cond);
     pthread_mutex_unlock(&mutex);
     //zapisanie response do pliku tekstowego
@@ -738,11 +722,8 @@ void delete_method(int socket, char *request_method, char *request, char *reques
     while(writer == 1){
         pthread_cond_wait(&cond, &mutex);
     }
-    //pthread_mutex_lock(&var_writer_mutex);
     writer = 1;
-    //pthread_mutex_unlock(&var_writer_mutex);
 
-   // pthread_mutex_lock(&mutex_writer);
     while(1){
         //sprawdzenie czy dany request url istnieje w bazie
         if(istnieje == 1){
@@ -843,8 +824,6 @@ void delete_method(int socket, char *request_method, char *request, char *reques
     while(readers > 0) {
         pthread_cond_wait(&cond, &mutex);
     }
-    //pthread_mutex_unlock(&mutex_writer);
-    //pthread_mutex_lock(&var_writer_mutex);
     writer = 0;
     
     pthread_cond_broadcast(&cond);
